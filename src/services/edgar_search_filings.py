@@ -1,7 +1,7 @@
 import requests
 from typing import List
-from modeling.EFTS import EFTS_Response
-from modeling.Company import PublicEntity, map_to_company
+from src.modeling.EFTS_Response import EFTS_Response
+from src.modeling.PublicEntity import PublicEntity, map_to_company
 from datetime import date
 
 def get_us_btc_companies() -> List[PublicEntity]:
@@ -23,12 +23,15 @@ def get_us_btc_companies() -> List[PublicEntity]:
 
   if response.status_code == 200:
       result = response.json()
+      print(result)
       efts_response = EFTS_Response(**result)
       public_entities = [ PublicEntity.from_cik(hits.source.get_cik_number()) for hits in efts_response.hits.hits]
       return public_entities    
   else:
       print("Error:", response.status_code, response.text)
-      
+
+get_us_btc_companies()
+
 def get_foreign_btc_companies() -> List[PublicEntity]:
   # Search parameters
   base_url = "https://efts.sec.gov/LATEST/search-index"

@@ -1,8 +1,7 @@
 from pydantic import BaseModel, Field
 from enum import Enum
-from edgar import Edgar
 from typing import Optional
-from modeling.EFTS import EFTS_Hit_Source
+from src.modeling.EFTS_Response import EFTS_Hit_Source
 
 
 class PublicEntityType(str, Enum):
@@ -22,7 +21,7 @@ class PublicEntity(BaseModel):
     
     @classmethod
     def from_cik(cls, cik: str):
-        entity_name = Edgar().get_company_name_by_cik(cik)
+        entity_name = 'Test'
         return cls(name= entity_name, cik=cik)
 
 def map_to_company(source: EFTS_Hit_Source ) -> PublicEntity:
