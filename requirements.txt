@@ -1,2 +1,7 @@
 ipykernel
 python-dotenv
+requests
+sec-downloader
+sec-parser
+pydantic
+edgar
