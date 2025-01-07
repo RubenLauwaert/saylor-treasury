@@ -26,6 +26,14 @@ class PublicEntityRepository:
         logging.warning(f"No entity found with CIK {cik}.")
         return None
 
+    def get_entity_by_ticker(self, ticker: str) -> Optional[PublicEntity]:
+        entity = self.collection.find_one({"ticker": ticker})
+        if entity:
+            logging.info(f"Found entity with ticker {ticker}.")
+            return PublicEntity(**entity)
+        logging.warning(f"No entity found with ticker {ticker}.")
+        return None
+
     def add_entity(self, entity: PublicEntity) -> str:
         result = self.collection.update_one(
             {"cik": entity.cik}, {"$set": entity.model_dump()}, upsert=True

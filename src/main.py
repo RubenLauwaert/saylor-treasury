@@ -1,51 +1,54 @@
 # FILE: main.py
 
 import logging
+import requests
 from datetime import date
 from modeling.efts.EFTS_Request import EFTS_Request
 from modeling.PublicEntity import PublicEntity, PublicEntityType
 from repositories import PublicEntityRepository
 from database import public_entity_collection
+from config import sec_edgar_settings
 
 # Set up logging configuration
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# A more advanced keyword search can combine synonyms and forms:
-base_bitcoin_8k_company_query = {
-    "q": "(bitcoin OR Bitcoin) AND (FORM 8-K)",
-    "dateRange": "custom",
-    "startdt": "2020-08-01",
-    "enddt": date.today(),
-}
-
-# Bitcoin miners
-base_bitcoin_8k_mining_company_query = {
-    "q": "(bitcoin OR Bitcoin) AND (FORM 8-K) AND NOT Trust AND mining ",
-    "dateRange": "custom",
-    "startdt": "2024-12-15",
-    "enddt": date.today(),
-}
-# Companies adding bitcoin to their balance sheet
-base_bitcoin_balance_sheet_query = {
-    "q": "(bitcoin OR Bitcoin) AND (purchase OR purchased OR acquire OR acquired OR added OR add)",
-    "dateRange": "custom",
-    "startdt": "2024-12-30",
-    "enddt": date.today(),
-}
-
-logging.info("Starting EFTS request for Bitcoin 8-K company query.")
-efts_request = EFTS_Request(query=base_bitcoin_8k_company_query)
-efts_response = efts_request.get_efts_response()
-entities = efts_response.get_entities()
-
-logging.info(f"Retrieved {len(entities)} entities from EFTS response.")
-
 # Add entities to database
 repository = PublicEntityRepository(public_entity_collection)
-repository.add_entities(entities)
 
-db_entities = repository.get_all_entities()
-logging.info(f"Retrieved {len(db_entities)} entities from the database.")
-print(db_entities)
+
+# Get entity by ticker
+ticker = "MSTR"
+entity = repository.get_entity_by_ticker(ticker)
+cik = entity.cik if entity else None
+
+# Get the formatted entity submissions URL
+submissions_url = sec_edgar_settings.get_formatted_entity_submissions_url(cik)
+company_facts_url = sec_edgar_settings.get_formatted_company_facts_url(cik)
+
+# Define the headers with User-Agent
+headers = {"User-Agent": "YourCompanyName - YourEmail@example.com"}
+
+# Retrieve the content of the URLs
+submissions_response = requests.get(submissions_url, headers=headers)
+company_facts_response = requests.get(company_facts_url, headers=headers)
+
+# Check if the requests were successful
+if submissions_response.status_code == 200:
+    submissions_data = submissions_response.json()
+    logging.info(f"Submissions data: {submissions_data}")
+else:
+    logging.error(
+        f"Failed to retrieve submissions data: {submissions_response.status_code}"
+    )
+
+if company_facts_response.status_code == 200:
+    company_facts_data = company_facts_response.json()
+    logging.info(f"Company facts data: {company_facts_data}")
+else:
+    logging.error(
+        f"Failed to retrieve company facts data: {company_facts_response.status_code}"
+    )
+
+print(sec_edgar_settings.company_tickers_url)
