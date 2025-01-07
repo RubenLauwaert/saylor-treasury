@@ -4,4 +4,3 @@ requests
 sec-downloader
 sec-parser
 pydantic
-edgar

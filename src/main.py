@@ -1,12 +1,20 @@
-from modeling.EFTS_Request import EFTS_Request
-from modeling.PublicEntity import PublicEntity, PublicEntityType
-from datetime import date
-import json
+# FILE: main.py
 
+import logging
+from datetime import date
+from modeling.efts.EFTS_Request import EFTS_Request
+from modeling.PublicEntity import PublicEntity, PublicEntityType
+from repositories import PublicEntityRepository
+from database import public_entity_collection
+
+# Set up logging configuration
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # A more advanced keyword search can combine synonyms and forms:
 base_bitcoin_8k_company_query = {
-    "q": "(bitcoin OR Bitcoin) AND (FORM 8-K) AND NOT Trust ",
+    "q": "(bitcoin OR Bitcoin) AND (FORM 8-K)",
     "dateRange": "custom",
     "startdt": "2020-08-01",
     "enddt": date.today(),
@@ -27,19 +35,17 @@ base_bitcoin_balance_sheet_query = {
     "enddt": date.today(),
 }
 
+logging.info("Starting EFTS request for Bitcoin 8-K company query.")
 efts_request = EFTS_Request(query=base_bitcoin_8k_company_query)
 efts_response = efts_request.get_efts_response()
-bitcoin_companies = []
-for entity in efts_response.get_entities():
+entities = efts_response.get_entities()
 
-    if entity.entity_type == PublicEntityType.company:
-        bitcoin_companies.append(
-            {
-                "name": entity.name,
-                "cik": entity.cik,
-                "ticker": entity.ticker,
-                "entity_type": entity.entity_type,
-            }
-        )
+logging.info(f"Retrieved {len(entities)} entities from EFTS response.")
 
-print(json.dumps(bitcoin_companies, indent=4))
+# Add entities to database
+repository = PublicEntityRepository(public_entity_collection)
+repository.add_entities(entities)
+
+db_entities = repository.get_all_entities()
+logging.info(f"Retrieved {len(db_entities)} entities from the database.")
+print(db_entities)
