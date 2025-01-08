@@ -1,6 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, Field
-from modeling.efts.EFTS_Response import EFTS_Response
+from modeling.sec_edgar.efts.EFTS_Response import EFTS_Response
 import math
 import requests
 
