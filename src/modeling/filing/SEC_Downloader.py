@@ -5,7 +5,7 @@ from typing import List
 from sec_downloader import Downloader
 from sec_downloader.types import RequestedFilings, FilingMetadata
 from modeling.util import ImportantDates
-from modeling.filing.SEC_Filing_8K import SEC_Filing_8K
+from src.modeling.filing.SEC_Filing import SEC_Filing_8K
 from config import sec_edgar_settings as ses
 from datetime import date, datetime
 import logging

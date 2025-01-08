@@ -34,6 +34,12 @@ class SECEdgarAPISettings(BaseSettings):
 
     def get_formatted_entity_submissions_url(self, cik: str) -> str:
         return f"{self.base_entity_submissions_url}CIK{cik}.json"
+    
+    def get_document_url(self, cik: str, accession_number: str, primary_document: str) -> str:
+        accession_number = accession_number.replace("-", "")
+        return f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession_number}/{primary_document}"
+
+
 
 
 sec_edgar_settings = SECEdgarAPISettings()

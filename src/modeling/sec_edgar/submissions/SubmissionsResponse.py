@@ -2,35 +2,23 @@
 
 from pydantic import BaseModel, Field
 from typing import List, Optional
-
-
-class Filing(BaseModel):
-    accession_number: str
-    filing_date: str
-    report_date: Optional[str]
-    acceptance_date_time: str
-    act: Optional[str]
-    form: str
-    file_number: Optional[str]
-    film_number: Optional[str]
-    items: Optional[List[str]]
-    size: Optional[int]
-    is_xbrl: Optional[bool]
-    is_inline_xbrl: Optional[bool]
-    primary_document: str
-    primary_doc_description: Optional[str]
-
-
+from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
+from config import sec_edgar_settings as ses
 class SubmissionsResponse(BaseModel):
     cik: str
     entity_name: str
-    filings: List[Filing]
+    filing_metadatas: List[SEC_Filing_Metadata]
 
     @classmethod
     def from_dict(cls, data: dict):
         recent_filings = data.get("filings", {}).get("recent", {})
-        filings = [
-            Filing(
+        cik = data.get("cik", "")
+        entity_name = data.get("entityName", "")
+        filing_metadatas = [
+            SEC_Filing_Metadata(
+                document_url=ses.get_document_url(cik=cik, 
+                                                  accession_number=recent_filings["accessionNumber"][i],
+                                                  primary_document=recent_filings["primaryDocument"][i] ),
                 accession_number=recent_filings["accessionNumber"][i],
                 filing_date=recent_filings["filingDate"][i],
                 report_date=recent_filings.get("reportDate", [None])[i] or None,
@@ -56,7 +44,7 @@ class SubmissionsResponse(BaseModel):
             for i in range(len(recent_filings["accessionNumber"]))
         ]
         return cls(
-            cik=data.get("cik", ""),
-            entity_name=data.get("entityName", ""),
-            filings=filings,
+            cik=cik,
+            entity_name=entity_name,
+            filing_metadatas=filing_metadatas
         )

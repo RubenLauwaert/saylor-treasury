@@ -34,5 +34,5 @@ class SubmissionsRequest(BaseModel):
             return cls(
                 url=url_str,
                 cik=cik,
-                resp_content=SubmissionsResponse(cik=cik, entity_name="", filings=[]),
+                resp_content=SubmissionsResponse(cik=cik, entity_name="", filing_metadatas=[]),
             )
