@@ -86,13 +86,8 @@ class EFTS_Response(BaseModel):
         return []
 
     def get_entities(self) -> List[PublicEntity]:
-        unique_entities = set()
+        
+        entity_full_names: List[str] = [bucket['key'] for bucket in self.aggregations["entity_filter"]["buckets"]]
+        entities = [ PublicEntity.map_to_entity(entity_name) for entity_name in entity_full_names]
+        return entities
 
-        for hit in self.get_hits():
-            display_name = hit.source.get_name()
-            cik = hit.source.get_cik_number()
-            unique_entities.add((display_name, cik))
-
-        return [
-            PublicEntity.map_to_entity(name, cik) for (name, cik) in unique_entities
-        ]

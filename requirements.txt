@@ -5,3 +5,5 @@ sec-downloader
 sec-edgar-downloader
 sec-parser
 pydantic
+schedule
+colorlog

@@ -12,14 +12,15 @@ class SubmissionsResponse(BaseModel):
     @classmethod
     def from_dict(cls, data: dict):
         recent_filings = data.get("filings", {}).get("recent", {})
-        cik = data.get("cik", "")
+        cik = data.get("cik", "").zfill(10)
         entity_name = data.get("entityName", "")
         filing_metadatas = [
             SEC_Filing_Metadata(
                 document_url=ses.get_document_url(cik=cik, 
                                                   accession_number=recent_filings["accessionNumber"][i],
                                                   primary_document=recent_filings["primaryDocument"][i] ),
-                accession_number=recent_filings["accessionNumber"][i],
+                company_cik=cik,
+                accession_number=recent_filings["accessionNumber"][i].replace("-", ""),
                 filing_date=recent_filings["filingDate"][i],
                 report_date=recent_filings.get("reportDate", [None])[i] or None,
                 acceptance_date_time=recent_filings["acceptanceDateTime"][i],

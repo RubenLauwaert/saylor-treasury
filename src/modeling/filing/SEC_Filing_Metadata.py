@@ -4,6 +4,7 @@ from typing import List, Optional
 
 class SEC_Filing_Metadata(BaseModel):
     document_url: Optional[str]
+    company_cik: str
     accession_number: str
     filing_date: str
     report_date: Optional[str]
