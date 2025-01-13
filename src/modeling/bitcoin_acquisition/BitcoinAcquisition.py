@@ -2,7 +2,7 @@ from typing import Union
 from modeling.bitcoin_acquisition.AcquisitionMethod import *
 
 
-class BitcoinAcquisitio(BaseModel):
+class BitcoinAcquisition(BaseModel):
     date: str
     amount: float
     price: float

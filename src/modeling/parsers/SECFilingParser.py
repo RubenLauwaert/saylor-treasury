@@ -1,5 +1,4 @@
 from enum import Enum
-import logging
 from typing import List, Optional
 import warnings
 from pydantic import BaseModel
@@ -88,11 +87,9 @@ class ItemExtractor(BaseModel):
         
         semantic_element = node.semantic_element
         class_name = semantic_element.__class__.__name__
-        logging.info("Class Name: " + class_name + semantic_element.text)
         # Check for Item codes in Titles
         if isinstance(semantic_element, (TopSectionTitle, TitleElement, IrrelevantElement)):
             if "item" in semantic_element.text.lower():
-                logging.info(f"Found Item: {semantic_element.text}")
                 item_code = extract_item_code(semantic_element.text)
                 if item_code not in [item.code for item in items]:
                     item_text = ItemExtractor._extract_item_text(node)
