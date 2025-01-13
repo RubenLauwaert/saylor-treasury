@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List
 from sec_downloader import Downloader
 from sec_downloader.types import RequestedFilings, FilingMetadata
-from modeling.util import ImportantDates
+from src.util import ImportantDates
 from src.modeling.filing.SEC_Filing import SEC_Filing_8K
 from config import sec_edgar_settings as ses
 from datetime import date, datetime

@@ -17,19 +17,20 @@ def add_new_entities():
     try:
         efts_response = EFTS_Request(query=base_bitcoin_8k_company_query)
         if efts_response is not None:
-          all_entities = efts_response.get_entities()
-          new_entities = [entity for entity in all_entities if entity.cik not in existing_ciks]
-          new_entity_tickers = {new_entity.ticker for new_entity in new_entities}
-          public_entity_repo.add_entities(new_entities)
-          logging.info(f"Added new companies to db with tickers: {new_entity_tickers}")
+            all_entities = efts_response.get_entities()
+            new_entities = [
+                entity for entity in all_entities if entity.cik not in existing_ciks
+            ]
+            new_entity_tickers = {new_entity.ticker for new_entity in new_entities}
+            if len(new_entities) > 0:
+                public_entity_repo.add_entities(new_entities)
+                logging.info(
+                    f"Added new entities to db with tickers: {new_entity_tickers}"
+                )
+            else:
+                logging.info(f"No new entities to add to db !")
     except Exception as e:
-      logging.error(f"Error adding new entities to database: {e}")
-        
-    
-      
-    
-    
-    
+        logging.error(f"Error adding new entities to database: {e}")
 
 
 def update_sec_filings_for_company(public_entity: PublicEntity):
@@ -37,11 +38,17 @@ def update_sec_filings_for_company(public_entity: PublicEntity):
     try:
         submission_resp = SubmissionsRequest.from_cik(public_entity.cik).resp_content
         filing_metadatas = submission_resp.filing_metadatas
-        sec_filings = [SEC_Filing.from_metadata(filing_metadata) for filing_metadata in filing_metadatas]
+        sec_filings = [
+            SEC_Filing.from_metadata(filing_metadata)
+            for filing_metadata in filing_metadatas
+        ]
         filing_repo.add_filings(sec_filings)
         logging.info(f"Updated SEC filings for company CIK {public_entity.cik}.")
     except Exception as e:
-        logging.error(f"Error updating SEC filings for company CIK {public_entity.cik}: {e}")
+        logging.error(
+            f"Error updating SEC filings for company CIK {public_entity.cik}: {e}"
+        )
+
 
 def update_sec_filings_for_all_companies():
     public_entity_repo = PublicEntityRepository(public_entity_collection)
