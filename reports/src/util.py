@@ -9,3 +9,5 @@ class ImportantDates(Enum):
     MSTR_GENESIS_DATE = date(2020, 8, 11)
     TODAY = date.today()
     LAST_30_DAYS = TODAY - timedelta(days=30)
+    
+

@@ -29,7 +29,7 @@ class SEC_FilingRepository:
     def get_filings_for_entity(self, public_entity: PublicEntity) -> List[SEC_Filing]:
         # Strip trailing zeros from the CIK
         company_cik = public_entity.cik
-        filings = self.collection.find({"filing_metadata.company_cik": company_cik})
+        filings = self.collection.find({"filing_metadata.company_cik": company_cik}).sort("filing_metadata.filing_date", -1)
         logging.info(
             f"Retrieved {self.collection.count_documents({'filing_metadata.company_cik': company_cik})} filings for company CIK {company_cik}."
         )
@@ -51,6 +51,23 @@ class SEC_FilingRepository:
             f"Retrieved {self.collection.count_documents({'filing_metadata.company_cik': cik, 'filing_metadata.filing_date': {'$gt': date_str}})} filings for company CIK {cik} after {date_str}."
         )
         return [SEC_Filing(**filing) for filing in filings]
+    
+    
+    def get_latest_filing_date_for(self, public_entity: PublicEntity) -> Optional[date]:
+        cik = public_entity.cik
+        latest_filing = self.collection.find_one(
+            {"filing_metadata.company_cik": cik},
+            sort=[("filing_metadata.filing_date", -1)]
+        )
+        if latest_filing:
+            latest_filing = SEC_Filing(**latest_filing)
+            latest_filing_date_str = latest_filing.filing_metadata.filing_date
+            latest_filing_date = date.fromisoformat(latest_filing_date_str)
+            logging.info(f"Latest filing date for company CIK {cik} is {latest_filing_date}.")
+            return latest_filing_date
+        logging.warning(f"No filings found for company CIK {cik}.")
+        return None
+    
 
     def add_filing(self, filing: SEC_Filing) -> Optional[str]:
         existing_filing = self.collection.find_one(
@@ -142,3 +159,4 @@ class SEC_FilingRepository:
         result = self.collection.bulk_write(operations)
         logging.info(f"Deleted {result.deleted_count} filings.")
         return result.deleted_count
+    

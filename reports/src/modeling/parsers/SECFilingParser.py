@@ -3,10 +3,12 @@ from typing import List, Optional
 import warnings
 from pydantic import BaseModel
 import sec_parser as sp
+import logging
 from sec_parser import SemanticTree, TreeNode, AbstractSemanticElement
 from sec_parser.processing_steps import TopSectionManagerFor10Q, IndividualSemanticElementExtractor, TopSectionTitleCheck
 from sec_parser.semantic_elements import *
 import re
+from transformers import pipeline
 
 class ItemCode(Enum):
     # Section 1: Registrant’s Business and Operations
@@ -60,6 +62,9 @@ class Item(BaseModel):
     subtitles: List[str]
     summary: List[str]
     
+    class Config:
+        use_enum_values = True
+    
 class ItemExtractor(BaseModel):
     
     @staticmethod
@@ -87,6 +92,7 @@ class ItemExtractor(BaseModel):
         
         semantic_element = node.semantic_element
         class_name = semantic_element.__class__.__name__
+        logging.info(f"Processing {class_name} [{semantic_element.html_tag.name}] : {semantic_element.text}")
         # Check for Item codes in Titles
         if isinstance(semantic_element, (TopSectionTitle, TitleElement, IrrelevantElement)):
             if "item" in semantic_element.text.lower():
@@ -98,12 +104,12 @@ class ItemExtractor(BaseModel):
                     items.append(Item(code=item_code, summary=item_text, subtitles=item_subtitles))
                     
         # Check for Item codes in Text Elements
-        if extensive_search == True:
+        if True:
             if isinstance(semantic_element, (TextElement)):
                 item_code = extract_item_code(semantic_element.text)
-                if item_code and not any(item.code == item_code for item in items):
+                # if item_code and not any(item.code == item_code for item in items):
                     # Check whether the item code is already in the list
-                    items.append(Item(code=item_code, summary=[semantic_element.text[:2000]], subtitles=[]))
+                items.append(Item(code=item_code, summary=[semantic_element.text[:2000]], subtitles=[]))
         
                 
         if node.has_child:
@@ -151,6 +157,63 @@ class SEC_Filing_Parser(BaseModel):
         tree: sp.SemanticTree = sp.TreeBuilder().build(elements)
         items = ItemExtractor.extract_items(tree)
         return items
+    
+    @staticmethod
+    def get_summary(html: str) -> str:
+        def split_text(text, max_length=512):
+            """
+            Splits text into chunks with a maximum token length to avoid exceeding model limits.
+            """
+            sentences = text.split(". ")
+            chunks = []
+            current_chunk = []
+            current_length = 0
+
+            for sentence in sentences:
+                sentence_length = len(sentence.split())
+                if current_length + sentence_length <= max_length:
+                    current_chunk.append(sentence)
+                    current_length += sentence_length
+                else:
+                    chunks.append(". ".join(current_chunk))
+                    current_chunk = [sentence]
+                    current_length = sentence_length
+
+            if current_chunk:
+                chunks.append(". ".join(current_chunk))
+            
+            return chunks
+
+        summary = ""
+        items = SEC_Filing_Parser.parse_filing_via_lib(html)
+        if items:
+            # Step 1: Extract and clean summaries
+            summaries = []
+            for item in items:
+                for summary_text in item.summary:
+                    cleaned_summary = summary_text.strip()  # Remove leading/trailing spaces or newlines
+                    if cleaned_summary and cleaned_summary not in summaries:  # Avoid duplicates
+                        summaries.append(cleaned_summary)
+
+            # Join summaries into a single text blob
+            full_text = "\n\n".join(summaries)
+
+            # Step 2: Split the text into manageable chunks
+            chunks = split_text(full_text, max_length=512)
+
+            # Step 3: Initialize the summarization model
+            summarizer = pipeline("summarization", model="t5-small", device=-1)
+
+            # Step 4: Summarize each chunk
+            chunk_summaries = []
+            for chunk in chunks:
+                compressed_summary = summarizer(chunk, max_length=150, min_length=50, do_sample=False)
+                chunk_summaries.append(compressed_summary[0]["summary_text"])
+                logging.info(f"Compressed original chunk : {chunk} to \n \n [Compressed] {compressed_summary[0]['summary_text']}")
+            # Step 5: Combine all chunk summaries into the final summary
+            summary = " ".join(chunk_summaries)
+
+        return summary
 
 
         

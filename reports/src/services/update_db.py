@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from datetime import date
 from data_repositories.public_entity_repo import PublicEntityRepository
 from data_repositories.sec_filing_repo import SEC_FilingRepository
 from modeling.sec_edgar.submissions.SubmissionsRequest import SubmissionsRequest
@@ -33,17 +33,19 @@ def add_new_entities():
         logging.error(f"Error adding new entities to database: {e}")
 
 
-def update_sec_filings_for_company(public_entity: PublicEntity):
+def sync_filings_for(public_entity: PublicEntity, include_content: bool = False):
     filing_repo = SEC_FilingRepository(filings_collection)
+    latest_filing_date = filing_repo.get_latest_filing_date_for(public_entity)
     try:
         submission_resp = SubmissionsRequest.from_cik(public_entity.cik).resp_content
         filing_metadatas = submission_resp.filing_metadatas
-        sec_filings = [
-            SEC_Filing.from_metadata(filing_metadata)
+        new_sec_filings = [
+            SEC_Filing.from_metadata(filing_metadata, include_content=include_content)
             for filing_metadata in filing_metadatas
-        ]
-        filing_repo.add_filings(sec_filings)
-        logging.info(f"Updated SEC filings for company CIK {public_entity.cik}.")
+        if date.fromisoformat(filing_metadata.filing_date) > latest_filing_date]
+        logging.info(f"Retrieved {len(new_sec_filings)} new SEC filings for company CIK {public_entity.cik}.")
+        filing_repo.add_filings(new_sec_filings)
+        logging.info(f"Synced SEC filings for company CIK {public_entity.cik}.")
     except Exception as e:
         logging.error(
             f"Error updating SEC filings for company CIK {public_entity.cik}: {e}"
@@ -55,7 +57,7 @@ def update_sec_filings_for_all_companies():
     try:
         entities = public_entity_repo.get_all_entities()
         for entity in entities:
-            update_sec_filings_for_company(entity)
+            sync_filings_for(entity)
         logging.info("Updated SEC filings for all companies.")
     except Exception as e:
         logging.error(f"Error updating SEC filings for all companies: {e}")

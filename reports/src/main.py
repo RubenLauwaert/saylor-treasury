@@ -1,6 +1,6 @@
 from services.update_db import (
     update_sec_filings_for_all_companies,
-    update_sec_filings_for_company,
+    sync_filings_for,
 )
 from services.daemon import setup_logging
 from database import filings_collection, public_entity_collection
@@ -16,11 +16,20 @@ setup_logging()
 public_entity_repo = PublicEntityRepository(public_entity_collection)
 sec_filing_repo = SEC_FilingRepository(filings_collection)
 
-# Get MSTR Public Entity
+# Sync filings for 
 mstr_entity = public_entity_repo.get_entity_by_ticker("MSTR")
+sync_filings_for(mstr_entity, include_content=True)
 
-# Get latest SEC filing for MSTR
-mstr_filings = sec_filing_repo.get_filings_for_entity_after_date(mstr_entity, ImportantDates.MSTR_GENESIS_DATE.value)
-filings_8k = [filing for filing in mstr_filings if filing.filing_metadata.form == "8-K"]
-sec_filing_w_content = SEC_Filing.from_metadata(filings_8k[0].filing_metadata, include_content=True)
-items =sec_filing_w_content.is_parsed
+# Get latest filing
+latest_mstr_filings = sec_filing_repo.get_filings_for_entity(mstr_entity)
+latest_mstr_filing = latest_mstr_filings[1]
+filing_w_content = SEC_Filing.from_metadata(latest_mstr_filing.filing_metadata, include_content=True)
+html = filing_w_content.content_html_str
+# Parse filing
+
+items = SEC_Filing_Parser.parse_filing_via_lib(html)
+
+summary = SEC_Filing_Parser.get_summary(html)
+len(summary)
+
+

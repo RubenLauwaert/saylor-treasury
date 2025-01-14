@@ -7,3 +7,4 @@ sec-parser
 pydantic
 schedule
 colorlog
+transformers
