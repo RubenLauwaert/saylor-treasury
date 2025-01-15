@@ -16,20 +16,20 @@ setup_logging()
 public_entity_repo = PublicEntityRepository(public_entity_collection)
 sec_filing_repo = SEC_FilingRepository(filings_collection)
 
-# Sync filings for 
+# Sync filings for
 mstr_entity = public_entity_repo.get_entity_by_ticker("MSTR")
 sync_filings_for(mstr_entity, include_content=True)
 
 # Get latest filing
 latest_mstr_filings = sec_filing_repo.get_filings_for_entity(mstr_entity)
-latest_mstr_filing = latest_mstr_filings[1]
-filing_w_content = SEC_Filing.from_metadata(latest_mstr_filing.filing_metadata, include_content=True)
-html = filing_w_content.content_html_str
+latest_mstr_filing = latest_mstr_filings[0]
+filing_w_content = SEC_Filing.from_metadata(
+    latest_mstr_filing.filing_metadata, include_content=True
+)
+filing_w_content.items
 # Parse filing
 
 items = SEC_Filing_Parser.parse_filing_via_lib(html)
 
 summary = SEC_Filing_Parser.get_summary(html)
 len(summary)
-
-
