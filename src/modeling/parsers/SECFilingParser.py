@@ -91,7 +91,7 @@ class ItemExtractor(BaseModel):
     ) -> List[Item]:
         items = []
         item_index_dict: dict = {}
-
+        logging.info(elements[17].text)
         for item_code in item_codes:
             if item_code is None:
                 continue
@@ -114,7 +114,11 @@ class ItemExtractor(BaseModel):
                 if i + 1 < len(sorted_item_codes)
                 else len(elements)
             )
-            item_elements_dict[item_code] = elements[start_index:end_index]
+
+            if start_index == end_index:
+                item_elements_dict[item_code] = [elements[start_index]]
+            else:
+                item_elements_dict[item_code] = elements[start_index:end_index]
 
         logging.info(f"Item Elements Dictionary: {item_elements_dict}")
 
@@ -131,7 +135,7 @@ class ItemExtractor(BaseModel):
             merged_text_elements = [
                 element for element in text_elements if "sec" in element.html_tag.name
             ]
-            summary = " ".join(element.text for element in merged_text_elements)
+            summary = " ".join(element.text for element in elements)
             items.append(
                 Item(
                     code=ItemCode.from_string(item_code_str),

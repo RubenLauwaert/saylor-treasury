@@ -17,7 +17,7 @@ public_entity_repo = PublicEntityRepository(public_entity_collection)
 sec_filing_repo = SEC_FilingRepository(filings_collection)
 
 # Sync filings for
-mstr_entity = public_entity_repo.get_entity_by_ticker("MSTR")
+mstr_entity = public_entity_repo.get_entity_by_ticker("KULR")
 sync_filings_for(mstr_entity, include_content=True)
 
 # Get latest filing
