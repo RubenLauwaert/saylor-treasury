@@ -64,15 +64,15 @@ class ItemCode(Enum):
     # Section 9: Financial Statements and Exhibits
     ITEM_9_01 = "Item 9.01 Financial Statements and Exhibits"
 
-
     @staticmethod
-    def from_string(item_code_str: str) -> Optional['ItemCode']:
+    def from_string(item_code_str: str) -> Optional["ItemCode"]:
         item_code_enum = f"ITEM_{item_code_str.replace('.', '_')}"
         return ItemCode.__members__.get(item_code_enum, None)
 
     @staticmethod
-    def map_item_codes(item_code_strs: List[str]) -> List[Optional['ItemCode']]:
+    def map_item_codes(item_code_strs: List[str]) -> List[Optional["ItemCode"]]:
         return [ItemCode.from_string(code) for code in item_code_strs]
+
 
 class Item(BaseModel):
     code: Optional[ItemCode]
@@ -84,12 +84,14 @@ class Item(BaseModel):
 
 
 class ItemExtractor(BaseModel):
-    
+
     @staticmethod
-    def extract_items(elements: List[AbstractSemanticElement], item_codes: List[str]) -> List[Item]:
+    def extract_items(
+        elements: List[AbstractSemanticElement], item_codes: List[str]
+    ) -> List[Item]:
         items = []
         item_index_dict: dict = {}
-        
+
         for item_code in item_codes:
             if item_code is None:
                 continue
@@ -100,20 +102,43 @@ class ItemExtractor(BaseModel):
         logging.info(item_index_dict)
         # Create a dictionary to store relevant elements for each item
         item_elements_dict = {}
-        sorted_item_codes = sorted(item_index_dict.keys(), key=lambda code: item_index_dict[code])
+        sorted_item_codes = sorted(
+            item_index_dict.keys(), key=lambda code: item_index_dict[code]
+        )
         logging.info(sorted_item_codes)
 
         for i, item_code in enumerate(sorted_item_codes):
             start_index = item_index_dict[item_code]
-            end_index = item_index_dict[sorted_item_codes[i + 1]] if i + 1 < len(sorted_item_codes) else len(elements)
+            end_index = (
+                item_index_dict[sorted_item_codes[i + 1]]
+                if i + 1 < len(sorted_item_codes)
+                else len(elements)
+            )
             item_elements_dict[item_code] = elements[start_index:end_index]
-        
+
         logging.info(f"Item Elements Dictionary: {item_elements_dict}")
 
         # Loop over the item_elements_dict and create Items
         for item_code_str, elements in item_elements_dict.items():
-            summary = ' '.join(element.text for element in elements)
-            items.append(Item(code=ItemCode.from_string(item_code_str), summary=[summary], subtitles=[]))
+            titles = [
+                element.text
+                for element in elements
+                if isinstance(element, TitleElement)
+            ]
+            text_elements = [
+                element for element in elements if isinstance(element, TextElement)
+            ]
+            merged_text_elements = [
+                element for element in text_elements if "sec" in element.html_tag.name
+            ]
+            summary = " ".join(element.text for element in merged_text_elements)
+            items.append(
+                Item(
+                    code=ItemCode.from_string(item_code_str),
+                    summary=[summary],
+                    subtitles=titles,
+                )
+            )
 
         return items
 

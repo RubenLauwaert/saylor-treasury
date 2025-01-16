@@ -22,18 +22,14 @@ sync_filings_for(mstr_entity, include_content=True)
 
 # Get latest filing
 latest_mstr_filings = sec_filing_repo.get_filings_for_entity(mstr_entity)
-latest_mstr_filings_8k = [ filing for filing in latest_mstr_filings if filing.filing_metadata.primary_doc_description == "8-K" ]
-latest_mstr_filing_8k = latest_mstr_filings_8k[4]
+latest_mstr_filings_8k = [
+    filing
+    for filing in latest_mstr_filings
+    if filing.filing_metadata.primary_doc_description == "8-K"
+]
+latest_mstr_filing_8k = latest_mstr_filings_8k[0]
 filing_w_content = SEC_Filing.from_metadata(
     latest_mstr_filing_8k.filing_metadata, include_content=True
 )
 filing_w_content.filing_metadata
 filing_w_content.items
-
-
-# Parse filing
-
-items = SEC_Filing_Parser.parse_filing_via_lib(html)
-
-summary = SEC_Filing_Parser.get_summary(html)
-len(summary)
