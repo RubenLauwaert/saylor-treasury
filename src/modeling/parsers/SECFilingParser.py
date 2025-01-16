@@ -65,6 +65,15 @@ class ItemCode(Enum):
     ITEM_9_01 = "Item 9.01 Financial Statements and Exhibits"
 
 
+    @staticmethod
+    def from_string(item_code_str: str) -> Optional['ItemCode']:
+        item_code_enum = f"ITEM_{item_code_str.replace('.', '_')}"
+        return ItemCode.__members__.get(item_code_enum, None)
+
+    @staticmethod
+    def map_item_codes(item_code_strs: List[str]) -> List[Optional['ItemCode']]:
+        return [ItemCode.from_string(code) for code in item_code_strs]
+
 class Item(BaseModel):
     code: Optional[ItemCode]
     subtitles: List[str]
@@ -75,89 +84,38 @@ class Item(BaseModel):
 
 
 class ItemExtractor(BaseModel):
-
+    
     @staticmethod
-    def extract_items(tree: SemanticTree) -> List[Item]:
+    def extract_items(elements: List[AbstractSemanticElement], item_codes: List[str]) -> List[Item]:
         items = []
-        for node in tree.nodes:
-            ItemExtractor._extract_items_recursive(node, items)
+        item_index_dict: dict = {}
+        
+        for item_code in item_codes:
+            if item_code is None:
+                continue
+            for index, element in enumerate(elements):
+                if item_code in element.text:
+                    item_index_dict[item_code] = index
+                    break
+        logging.info(item_index_dict)
+        # Create a dictionary to store relevant elements for each item
+        item_elements_dict = {}
+        sorted_item_codes = sorted(item_index_dict.keys(), key=lambda code: item_index_dict[code])
+        logging.info(sorted_item_codes)
 
-        if len(items) == 0:
-            for node in tree.nodes:
-                ItemExtractor._extract_items_recursive(
-                    node, items, extensive_search=True
-                )
+        for i, item_code in enumerate(sorted_item_codes):
+            start_index = item_index_dict[item_code]
+            end_index = item_index_dict[sorted_item_codes[i + 1]] if i + 1 < len(sorted_item_codes) else len(elements)
+            item_elements_dict[item_code] = elements[start_index:end_index]
+        
+        logging.info(f"Item Elements Dictionary: {item_elements_dict}")
+
+        # Loop over the item_elements_dict and create Items
+        for item_code_str, elements in item_elements_dict.items():
+            summary = ' '.join(element.text for element in elements)
+            items.append(Item(code=ItemCode.from_string(item_code_str), summary=[summary], subtitles=[]))
+
         return items
-
-    @staticmethod
-    def _extract_items_recursive(
-        node: TreeNode, items: List[Item], extensive_search: bool = False
-    ):
-
-        def extract_item_code(text: str) -> Optional[ItemCode]:
-            match = re.search(r"Item\s*(\d+\.\d+)", text, re.IGNORECASE)
-            if match:
-                item_code_str = match.group(1).replace(".", "_")
-                item_code_enum = f"ITEM_{item_code_str}"
-                if item_code_enum in ItemCode.__members__:
-                    return ItemCode[item_code_enum]
-            return None
-
-        semantic_element = node.semantic_element
-        class_name = semantic_element.__class__.__name__
-        logging.info(
-            f"Processing {class_name} [{semantic_element.html_tag.name}] : {semantic_element.text}"
-        )
-        # Check for Item codes in Titles
-        if isinstance(
-            semantic_element, (TopSectionTitle, TitleElement, IrrelevantElement)
-        ):
-            if "item" in semantic_element.text.lower():
-                item_code = extract_item_code(semantic_element.text)
-                if item_code not in [item.code for item in items]:
-                    item_text = ItemExtractor._extract_item_text(node)
-                    # Item subtitles
-                    item_subtitles = [
-                        child.semantic_element.text
-                        for child in node.children
-                        if isinstance(child.semantic_element, TitleElement)
-                    ]
-                    items.append(
-                        Item(
-                            code=item_code, summary=item_text, subtitles=item_subtitles
-                        )
-                    )
-
-        # # Check for Item codes in Text Elements
-        # if True:
-        #     if isinstance(semantic_element, (TextElement)):
-        #         item_code = extract_item_code(semantic_element.text)
-        #         # if item_code and not any(item.code == item_code for item in items):
-        #             # Check whether the item code is already in the list
-        #         items.append(Item(code=item_code, summary=[semantic_element.text[:2000]], subtitles=[]))
-
-        if node.has_child:
-            for child in node.children:
-                ItemExtractor._extract_items_recursive(child, items)
-
-    @staticmethod
-    def _extract_item_text(node: TreeNode) -> List[str]:
-        text_elements: List[str] = []
-        for child in node.children:
-            ItemExtractor._extract_item_text_rec(child, text_elements)
-
-        return text_elements
-
-    @staticmethod
-    def _extract_item_text_rec(node: TreeNode, text_elements: List[str]):
-        semantic_element = node.semantic_element
-
-        if isinstance(semantic_element, (TextElement)):
-            text_elements.append(semantic_element.text)
-
-        if node.has_child:
-            for child in node.children:
-                ItemExtractor._extract_item_text_rec(child, text_elements)
 
 
 class SEC_Filing_Parser(BaseModel):
@@ -168,7 +126,7 @@ class SEC_Filing_Parser(BaseModel):
         return ItemExtractor.extract_items(tree)
 
     @staticmethod
-    def parse_filing_via_lib(html: str) -> Optional[List[Item]]:
+    def parse_filing_via_lib(html: str, item_codes: List[str]) -> Optional[List[Item]]:
 
         parser = sp.Edgar10QParser()
 
@@ -177,7 +135,7 @@ class SEC_Filing_Parser(BaseModel):
             elements: list = parser.parse(html)
 
         tree: sp.SemanticTree = sp.TreeBuilder().build(elements)
-        items = ItemExtractor.extract_items(tree)
+        items = ItemExtractor.extract_items(elements=elements, item_codes=item_codes)
         return items
 
     @staticmethod

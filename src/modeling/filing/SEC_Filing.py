@@ -28,7 +28,7 @@ class SEC_Filing(BaseModel):
                 has_raw_content = True
                 logging.info(f"Successfully retrieved content for URL: {filing_url}")
                 # Parse raw html content into list of items
-                items = SEC_Filing_Parser.parse_filing_via_lib(content_html_str)
+                items = SEC_Filing_Parser.parse_filing_via_lib(content_html_str, filing_metadata.items)
                 is_parsed = True
                 logging.info(f"Successfully parsed content for URL: {filing_url}")
             except Exception as e:
