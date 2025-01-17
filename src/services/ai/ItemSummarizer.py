@@ -33,7 +33,14 @@ class ItemSummarizer:
     def summarize_item(self, text: str, item_code: ItemCode = None) -> str:
         summarized_text = text
         try:
-          pass
+          response = self.client.chat.completions.create(
+            model=self.summarization_model,
+            messages=[
+                {"role": "system", "content": "You are an AI assistant that is used for summarizing and cleaning hard to read SEC filings"},
+                {"role": "user", "content": f"Could you summarize the following text from an 8k-SEC filing with item-code {item_code}: \n\n {text}"},
+            ],
+          )
+          summarized_text = response.choices[0].message.content
         except Exception as e:
             self.logger.error(f"Error summarizing text: {e}")
         return summarized_text
