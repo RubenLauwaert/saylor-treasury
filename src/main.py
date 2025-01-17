@@ -8,6 +8,7 @@ from data_repositories.sec_filing_repo import SEC_FilingRepository
 from data_repositories.public_entity_repo import PublicEntityRepository
 from modeling.filing.SEC_Filing import SEC_Filing
 from modeling.parsers.SECFilingParser import SEC_Filing_Parser, ItemCode
+from services.ai.ItemSummarizer import ItemSummarizer
 from util import ImportantDates
 import logging
 
@@ -19,7 +20,7 @@ public_entity_repo = PublicEntityRepository(public_entity_collection)
 sec_filing_repo = SEC_FilingRepository(filings_collection)
 
 # Sync filings for
-mstr_entity = public_entity_repo.get_entity_by_ticker("MSTR")
+mstr_entity = public_entity_repo.get_entity_by_ticker("MARA")
 sync_filings_for(mstr_entity, include_content=True)
 
 # Get latest filing
@@ -33,7 +34,13 @@ latest_mstr_filing_8k = latest_mstr_filings_8k[4]
 filing_w_content = SEC_Filing.from_metadata(
     latest_mstr_filing_8k.filing_metadata, include_content=True
 )
+
 filing_w_content.filing_metadata
-items = filing_w_content.items
+filing_w_content.items[0].summary
+
+# Summarize items in SEC_Filing
+
+summarizer = ItemSummarizer()
+summarized_filing = summarizer.summarize_items(filing_w_content)
 
     

@@ -9,3 +9,4 @@ schedule
 colorlog
 transformers
 unidecode
+openai

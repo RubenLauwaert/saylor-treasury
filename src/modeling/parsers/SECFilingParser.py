@@ -133,14 +133,25 @@ class ItemExtractor(BaseModel):
             merged_text_elements = [
                 element for element in text_elements if "sec" in element.html_tag.name
             ]
+            
+            # Summary
             summary = " ".join(element.text for element in merged_text_elements)
-            summary = ItemExtractor.clean_summary(summary)
+            # Cleaned summary
+            cleaned_summary = ItemExtractor.clean_summary(summary)
+            # Summarize the summary
+            try:
+                summarized_summary = ItemExtractor.summarize_text(cleaned_summary)
+            except Exception as e:
+                logger = logging.getLogger(ItemExtractor.__name__)
+                logger.error(f"Error summarizing text: {e}")
+                summarized_summary = cleaned_summary
+                
             items.append(
                 Item(
                     code=ItemCode.from_string(item_code_str),
                     content_elements=[element.text for element in merged_text_elements],
                     subtitles=titles,
-                    summary=summary
+                    summary=summarized_summary
                 )
             )
 
@@ -157,17 +168,14 @@ class ItemExtractor(BaseModel):
         summary = re.sub(r'\s+', ' ', summary)  # Replace multiple spaces with a single space again
         summary = summary.strip()  # Remove leading and trailing whitespace
         return summary
+    
+
 
 
 class SEC_Filing_Parser(BaseModel):
-    @staticmethod
-    def parse_filing(html: str) -> Optional[List[str]]:
-        tree = SemanticTree.from_html(html)
-        print(f"Parsed Tree: {tree}")
-        return ItemExtractor.extract_items(tree)
 
     @staticmethod
-    def parse_filing_via_lib(html: str, item_codes: List[str]) -> Optional[List[Item]]:
+    def parse_filing(html: str, item_codes: List[str]) -> Optional[List[Item]]:
         logger = logging.getLogger(SEC_Filing_Parser.__name__)
 
         parser = sp.Edgar10QParser()
@@ -181,67 +189,3 @@ class SEC_Filing_Parser(BaseModel):
         # logger.info(f"Succesfully extracted items: {[ {{ "item_code": item.code, "summary": item.summary[:100]}} for item in items]}")
         return items
 
-    @staticmethod
-    def get_summary(html: str) -> str:
-        def split_text(text, max_length=512):
-            """
-            Splits text into chunks with a maximum token length to avoid exceeding model limits.
-            """
-            sentences = text.split(". ")
-            chunks = []
-            current_chunk = []
-            current_length = 0
-
-            for sentence in sentences:
-                sentence_length = len(sentence.split())
-                if current_length + sentence_length <= max_length:
-                    current_chunk.append(sentence)
-                    current_length += sentence_length
-                else:
-                    chunks.append(". ".join(current_chunk))
-                    current_chunk = [sentence]
-                    current_length = sentence_length
-
-            if current_chunk:
-                chunks.append(". ".join(current_chunk))
-
-            return chunks
-
-        summary = ""
-        items = SEC_Filing_Parser.parse_filing_via_lib(html)
-        if items:
-            # Step 1: Extract and clean summaries
-            summaries = []
-            for item in items:
-                for summary_text in item.summary:
-                    cleaned_summary = (
-                        summary_text.strip()
-                    )  # Remove leading/trailing spaces or newlines
-                    if (
-                        cleaned_summary and cleaned_summary not in summaries
-                    ):  # Avoid duplicates
-                        summaries.append(cleaned_summary)
-
-            # Join summaries into a single text blob
-            full_text = "\n\n".join(summaries)
-
-            # Step 2: Split the text into manageable chunks
-            chunks = split_text(full_text, max_length=512)
-
-            # Step 3: Initialize the summarization model
-            summarizer = pipeline("summarization", model="t5-small", device=-1)
-
-            # Step 4: Summarize each chunk
-            chunk_summaries = []
-            for chunk in chunks:
-                compressed_summary = summarizer(
-                    chunk, max_length=150, min_length=50, do_sample=False
-                )
-                chunk_summaries.append(compressed_summary[0]["summary_text"])
-                logging.info(
-                    f"Compressed original chunk : {chunk} to \n \n [Compressed] {compressed_summary[0]['summary_text']}"
-                )
-            # Step 5: Combine all chunk summaries into the final summary
-            summary = " ".join(chunk_summaries)
-
-        return summary

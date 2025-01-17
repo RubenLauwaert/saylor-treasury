@@ -30,7 +30,7 @@ class SEC_Filing(BaseModel):
                 has_raw_content = True
                 logger.info(f"Retrieved html content : {document}")
                 # Parse raw html content into list of items
-                items = SEC_Filing_Parser.parse_filing_via_lib(content_html_str, filing_metadata.items)
+                items = SEC_Filing_Parser.parse_filing(content_html_str, filing_metadata.items)
                 is_parsed = True
                 logger.info(f"Parsed html content for : {document}")
             except Exception as e:

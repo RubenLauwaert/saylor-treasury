@@ -1,7 +1,8 @@
+from openai import OpenAI
 from pydantic_settings import BaseSettings
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, BaseModel
 
-
+# Configuration of MongoDB database
 class MongoSettings(BaseSettings):
     """Settings for the application."""
 
@@ -16,7 +17,7 @@ class MongoSettings(BaseSettings):
 
 mongosettings = MongoSettings()
 
-
+# Configuration of SEC Edgar API
 class SECEdgarAPISettings(BaseSettings):
     """Settings for the public SEC Edgar API."""
 
@@ -40,6 +41,20 @@ class SECEdgarAPISettings(BaseSettings):
         return f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession_number}/{primary_document}"
 
 
-
-
 sec_edgar_settings = SECEdgarAPISettings()
+
+
+# Configuration of OpenAI API Settings
+
+class OpenAI_Settings(BaseSettings):
+    """Settings for the OpenAI API."""
+
+    api_key: str = Field(alias="openai_api_key")
+    summarization_model: str = Field(alias="openai_summarization_model")
+    structured_output_model: str = Field(alias="openai_structured_output_model")
+    
+    def get_client(self):
+        return OpenAI(api_key=self.api_key)
+    
+openai_settings = OpenAI_Settings()
+
