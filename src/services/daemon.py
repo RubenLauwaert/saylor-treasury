@@ -15,7 +15,7 @@ def setup_logging():
     }
 
     formatter = colorlog.ColoredFormatter(
-        "%(log_color)s%(asctime)s - %(levelname)s - %(message)s",
+        "%(log_color)s[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
         datefmt=None,
         reset=True,
         log_colors=log_colors,

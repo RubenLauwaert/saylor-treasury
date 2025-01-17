@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 import warnings
 from pydantic import BaseModel
 import sec_parser as sp
@@ -10,9 +10,11 @@ from sec_parser.processing_steps import (
     IndividualSemanticElementExtractor,
     TopSectionTitleCheck,
 )
+from unidecode import unidecode
 from sec_parser.semantic_elements import *
 import re
 from transformers import pipeline
+import ftfy
 
 
 class ItemCode(Enum):
@@ -75,9 +77,10 @@ class ItemCode(Enum):
 
 
 class Item(BaseModel):
-    code: Optional[ItemCode]
-    subtitles: List[str]
-    summary: List[str]
+    code: Optional[ItemCode] = None
+    subtitles: List[str] = []
+    content_elements: List[str] = []
+    summary: Union[str, List[str]] = ""
 
     class Config:
         use_enum_values = True
@@ -91,7 +94,6 @@ class ItemExtractor(BaseModel):
     ) -> List[Item]:
         items = []
         item_index_dict: dict = {}
-        logging.info(elements[17].text)
         for item_code in item_codes:
             if item_code is None:
                 continue
@@ -99,13 +101,11 @@ class ItemExtractor(BaseModel):
                 if item_code in element.text:
                     item_index_dict[item_code] = index
                     break
-        logging.info(item_index_dict)
         # Create a dictionary to store relevant elements for each item
         item_elements_dict = {}
         sorted_item_codes = sorted(
             item_index_dict.keys(), key=lambda code: item_index_dict[code]
         )
-        logging.info(sorted_item_codes)
 
         for i, item_code in enumerate(sorted_item_codes):
             start_index = item_index_dict[item_code]
@@ -120,8 +120,6 @@ class ItemExtractor(BaseModel):
             else:
                 item_elements_dict[item_code] = elements[start_index:end_index]
 
-        logging.info(f"Item Elements Dictionary: {item_elements_dict}")
-
         # Loop over the item_elements_dict and create Items
         for item_code_str, elements in item_elements_dict.items():
             titles = [
@@ -135,16 +133,30 @@ class ItemExtractor(BaseModel):
             merged_text_elements = [
                 element for element in text_elements if "sec" in element.html_tag.name
             ]
-            summary = " ".join(element.text for element in elements)
+            summary = " ".join(element.text for element in merged_text_elements)
+            summary = ItemExtractor.clean_summary(summary)
             items.append(
                 Item(
                     code=ItemCode.from_string(item_code_str),
-                    summary=[summary],
+                    content_elements=[element.text for element in merged_text_elements],
                     subtitles=titles,
+                    summary=summary
                 )
             )
 
         return items
+    
+    @staticmethod
+    def clean_summary(summary: str) -> str:
+        # Remove unwanted whitespace, newlines, and special characters
+        summary = re.sub(r'\s+', ' ', summary)  # Replace multiple whitespace with a single space
+        summary = re.sub(r'\\n', ' ', summary)  # Replace \n with a space
+        summary = re.sub(r'\\u2009', ' ', summary)  # Replace \u2009 with a space
+        summary = re.sub(r'\\xa0', ' ', summary)  # Replace \xa0 with a space
+        summary = re.sub(r'\\', '', summary)  # Remove backslashes
+        summary = re.sub(r'\s+', ' ', summary)  # Replace multiple spaces with a single space again
+        summary = summary.strip()  # Remove leading and trailing whitespace
+        return summary
 
 
 class SEC_Filing_Parser(BaseModel):
@@ -156,6 +168,7 @@ class SEC_Filing_Parser(BaseModel):
 
     @staticmethod
     def parse_filing_via_lib(html: str, item_codes: List[str]) -> Optional[List[Item]]:
+        logger = logging.getLogger(SEC_Filing_Parser.__name__)
 
         parser = sp.Edgar10QParser()
 
@@ -163,8 +176,9 @@ class SEC_Filing_Parser(BaseModel):
             warnings.filterwarnings("ignore", message="Invalid section type for")
             elements: list = parser.parse(html)
 
-        tree: sp.SemanticTree = sp.TreeBuilder().build(elements)
+        logger.info(f"Extracting item content for items: {item_codes}")
         items = ItemExtractor.extract_items(elements=elements, item_codes=item_codes)
+        # logger.info(f"Succesfully extracted items: {[ {{ "item_code": item.code, "summary": item.summary[:100]}} for item in items]}")
         return items
 
     @staticmethod

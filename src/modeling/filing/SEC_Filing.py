@@ -15,6 +15,7 @@ class SEC_Filing(BaseModel):
 
     @classmethod
     def from_metadata(cls, filing_metadata: SEC_Filing_Metadata, include_content: bool = False):
+        logger = logging.getLogger(SEC_Filing.__name__)
         content_html_str = None    
         items = []
         is_parsed = False
@@ -24,15 +25,16 @@ class SEC_Filing(BaseModel):
                 # Retrieve raw html content
                 dl = Downloader(ses.user_agent_header, ses.sec_user_agent_email)
                 filing_url = filing_metadata.document_url
+                document = filing_metadata.primary_document
                 content_html_str = dl.download_filing(url=filing_url).__str__()
                 has_raw_content = True
-                logging.info(f"Successfully retrieved content for URL: {filing_url}")
+                logger.info(f"Retrieved html content : {document}")
                 # Parse raw html content into list of items
                 items = SEC_Filing_Parser.parse_filing_via_lib(content_html_str, filing_metadata.items)
                 is_parsed = True
-                logging.info(f"Successfully parsed content for URL: {filing_url}")
+                logger.info(f"Parsed html content for : {document}")
             except Exception as e:
-                logging.info(f"Error retrieving content from {filing_url}: {e}")
+                logger.info(f"Error retrieving content from {filing_url}: {e}")
         
         return cls(filing_metadata=filing_metadata, 
                    content_html_str=content_html_str, 
