@@ -1,4 +1,4 @@
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 from pydantic_settings import BaseSettings
 from pydantic import AliasChoices, Field, BaseModel
 
@@ -55,6 +55,9 @@ class OpenAI_Settings(BaseSettings):
     
     def get_client(self):
         return OpenAI(api_key=self.api_key)
+    
+    def get_async_client(self):
+        return AsyncOpenAI(api_key=self.api_key)
     
 openai_settings = OpenAI_Settings()
 
