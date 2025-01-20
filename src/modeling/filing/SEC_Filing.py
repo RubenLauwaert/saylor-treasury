@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Mapping, Optional
 from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
-from modeling.parsers.SECFilingParser import *
+from modeling.parsers.SEC_Filing_Parser_8K import *
 import logging
 import aiohttp
 import asyncio
@@ -13,8 +13,8 @@ class SEC_Filing(BaseModel):
     content_html_str: Optional[str] = Field(default=None, description="Content of the filing")
     is_parsed: bool = Field(default=False, description="Whether the content has been parsed")
     has_raw_content: bool = Field(default=False, description="Whether the content has been retrieved")
-    items: Optional[List[Item]] = Field(default=[], description="Items extracted from the filing")
-
+    items: Optional[List[Item_8K]] = Field(default=None, description="List of items parsed from the content")
+    
     @classmethod
     def from_metadata(cls, filing_metadata: SEC_Filing_Metadata, include_content: bool = False):
         logger = logging.getLogger(SEC_Filing.__name__)
@@ -32,7 +32,7 @@ class SEC_Filing(BaseModel):
                 has_raw_content = True
                 logger.info(f"Retrieved html content : {document}")
                 # Parse raw html content into list of items
-                items = SEC_Filing_Parser.parse_filing(content_html_str, filing_metadata.items)
+                items = SEC_Filing_Parser_8K.parse_filing(content_html_str, filing_metadata.items)
                 is_parsed = True
                 logger.info(f"Parsed html content for : {document}")
             except Exception as e:
@@ -67,7 +67,7 @@ class SEC_Filing(BaseModel):
                             logger.info(f"Failed to retrieve content from {filing_url}, status code: {response.status} error: {response.reason}")
                 # Parse raw html content into list of items
                 if content_html_str:
-                    items = SEC_Filing_Parser.parse_filing(content_html_str, filing_metadata.items)
+                    items = SEC_Filing_Parser_8K.parse_filing(content_html_str, filing_metadata.items)
                     is_parsed = True
                     logger.info(f"Parsed html content for : {document}")
             except Exception as e:

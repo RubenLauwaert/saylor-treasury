@@ -8,41 +8,34 @@ from services.daemon import setup_logging
 from database import filings_collection, public_entity_collection
 from data_repositories.sec_filing_repo import SEC_FilingRepository
 from data_repositories.public_entity_repo import PublicEntityRepository
+from modeling.filing.sec_8k.Filing_8K import Filing_8K
 from modeling.filing.SEC_Filing import SEC_Filing
-from modeling.parsers.SECFilingParser import SEC_Filing_Parser, ItemCode
-from services.ai.FilingSummarizer import FilingSummarizer
+from services.ai.Filing_Summarizer_8K import Filing_Summarizer_8K
 from util import ImportantDates
 import asyncio
 import time
 
 setup_logging()
 
-# New companies
-add_new_entities()
 
 
 # Data repositories
 public_entity_repo = PublicEntityRepository(public_entity_collection)
 sec_filing_repo = SEC_FilingRepository(filings_collection)
 
-mstr_entity = public_entity_repo.get_entity_by_ticker("MSTR")
+mstr_entity = public_entity_repo.get_entity_by_ticker("SMLR")
     
 # Get latest filing
-latest_mstr_filings = sec_filing_repo.get_filings_for_entity(mstr_entity)
-latest_mstr_filings_8k = [
-    filing.filing_metadata
-    for filing in latest_mstr_filings
-    if filing.filing_metadata.primary_doc_description == "8-K"
-][0:5]
-
-
+filings_8k = sec_filing_repo.get_8k_filings_for_after_date(mstr_entity, ImportantDates.MSTR_GENESIS_DATE.value) 
+filing_metadatas_8k = [filing.filing_metadata for filing in filings_8k][0:1]
+len(filings_8k)
 
 
 def test_sync():
     start_time = time.time()
     logging.info("Starting to retrieve HTML content for latest filings synchronously.")
     
-    filings = [ SEC_Filing.from_metadata(metadata, include_content=True) for metadata in latest_mstr_filings_8k]
+    filings = [ Filing_8K.from_metadata(metadata, include_content=True) for metadata in filing_metadatas_8k]
     
     end_time = time.time()
     logging.info(f"Finished retrieving HTML content. Time taken: {end_time - start_time} seconds.")
@@ -55,17 +48,23 @@ async def test_async():
     logging.info("Starting to retrieve HTML content for latest filings asynchronously.")
     
     # Retrieve html and parse content for latest filings asynchronously
-    filings = await SEC_Filing.from_metadatas_async(latest_mstr_filings_8k)
+    filings = await Filing_8K.from_metadatas_async(filing_metadatas_8k)
     end_time = time.time()
     logging.info(f"Finished retrieving HTML content. Time taken: {end_time - start_time} seconds.")
-    # Summarize filings asynchronously
-    start_time = time.time()
-    summarizer = FilingSummarizer()
-    summarized_filings = await summarizer.summarize_filings_optimized(filings)
-    summary = summarized_filings[0].items[0].summary
-    logging.info(f"Example Summary: {summary}")
-    end_time = time.time()
-    logging.info(f"Finished summarizing filings. Time taken: {end_time - start_time} seconds.")
+    
+    
+    filing = filings[0]
+    url = filing.filing_metadata.document_url
+    logging.info(url)
+    logging.info(filing.items[1].raw_text)
+    # # Summarize filings asynchronously
+    # start_time = time.time()
+    # summarizer = Filing_Summarizer_8K()
+    # summarized_filings = await summarizer.summarize_filings_optimized(filings)
+    # summary = summarized_filings[0].items[0].summary
+    # logging.info(f"Example Summary: {summary}")
+    # end_time = time.time()
+    # logging.info(f"Finished summarizing filings. Time taken: {end_time - start_time} seconds.")
 
     
 asyncio.run(test_async())

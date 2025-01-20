@@ -10,4 +10,4 @@ class ImportantDates(Enum):
     TODAY = date.today()
     LAST_30_DAYS = TODAY - timedelta(days=30)
     
-
+    

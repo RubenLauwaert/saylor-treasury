@@ -53,6 +53,37 @@ class SEC_FilingRepository:
         return [SEC_Filing(**filing) for filing in filings]
     
     
+    def get_8k_filings_for(self, public_entity: PublicEntity) -> List[SEC_Filing]:
+        company_cik = public_entity.cik
+        filings = self.collection.find(
+            {
+                "filing_metadata.company_cik": company_cik,
+                "filing_metadata.primary_doc_description": "8-K"
+            }
+        ).sort("filing_metadata.filing_date", -1)
+        logging.info(
+            f"Retrieved {self.collection.count_documents({'filing_metadata.company_cik': company_cik, 'filing_metadata.primary_doc_description': '8-K'})} 8-K filings for company CIK {company_cik}."
+        )
+        return [SEC_Filing(**filing) for filing in filings]
+
+    def get_8k_filings_for_after_date(
+        self, public_entity: PublicEntity, date: date
+    ) -> List[SEC_Filing]:
+        cik = public_entity.cik
+        date_str = date.isoformat()
+        filings = self.collection.find(
+            {
+                "filing_metadata.company_cik": cik,
+                "filing_metadata.primary_doc_description": "8-K",
+                "filing_metadata.filing_date": {"$gt": date_str},
+            }
+        ).sort("filing_metadata.filing_date", -1)
+        logging.info(
+            f"Retrieved {self.collection.count_documents({'filing_metadata.company_cik': cik, 'filing_metadata.primary_doc_description': '8-K', 'filing_metadata.filing_date': {'$gt': date_str}})} 8-K filings for company CIK {cik} after {date_str}."
+        )
+        return [SEC_Filing(**filing) for filing in filings]
+    
+    
     def get_latest_filing_date_for(self, public_entity: PublicEntity) -> Optional[date]:
         cik = public_entity.cik
         latest_filing = self.collection.find_one(
