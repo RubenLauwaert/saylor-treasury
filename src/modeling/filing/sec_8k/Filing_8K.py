@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
 from modeling.filing.sec_8k.Item_8K import Item_8K
+from modeling.filing.sec_8k.ItemCode_8K import ItemCode_8K
 from modeling.parsers.SEC_Filing_Parser_8K import SEC_Filing_Parser_8K
 import logging
 from config import sec_edgar_settings as ses
@@ -15,6 +16,14 @@ class Filing_8K(BaseModel):
     is_parsed: bool = Field(default=False, description="Whether the content has been parsed")
     is_summarized: bool = Field(default=False, description="Whether the content has been summarized")
     items: List[Item_8K]
+    
+    
+    def get_item(self, item_code: ItemCode_8K) -> Optional[Item_8K]:
+        for item in self.items:
+            if item.code == item_code.value:
+                return item
+        return None
+    
     
     @classmethod
     async def from_metadata_async(cls, filing_metadata: SEC_Filing_Metadata) -> 'Filing_8K':

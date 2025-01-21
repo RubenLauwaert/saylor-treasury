@@ -79,8 +79,11 @@ class SEC_Filing_8K_Repository:
 
     def update_filings(self, filings: List[Filing_8K]):
         operations = [UpdateOne({"filing_metadata.accession_number": f.filing_metadata.accession_number}, {"$set": f.model_dump()}, upsert=True) for f in filings]
-        self.collection.bulk_write(operations)
-        self.logger.info(f"Updated {len(filings)} 8-K filings.")
+        if(len(operations) > 0):
+            self.collection.bulk_write(operations)
+            self.logger.info(f"Updated {len(filings)} 8-K filings.")
+        else:
+            self.logger.info(f"No filings to update.")
 
     def delete_filing(self, accession_number: str):
         self.collection.delete_one({"filing_metadata.accession_number": accession_number})

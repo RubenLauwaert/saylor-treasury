@@ -7,9 +7,11 @@ from modeling.sec_edgar.submissions.SubmissionsRequest import SubmissionsRequest
 from modeling.sec_edgar.efts.EFTS_Request import EFTS_Request, EFTS_Response
 from modeling.PublicEntity import PublicEntity
 from modeling.filing.sec_8k.Filing_8K import Filing_8K
+from services.ai.Filing_Summarizer_8K import Filing_Summarizer_8K
 from pymongo.collection import Collection
 from queries import base_bitcoin_8k_company_query
 from database import public_entity_collection, sec_filing_metadatas_collection, filings_8k_collection
+from services.ai.BTC_Updates_Extractor import Bitcoin_Updates_Extractor
 from util import ImportantDates
 from logging import Logger
 
@@ -100,6 +102,47 @@ class DatabaseUpdater:
         except Exception as e:
             self.logger.error(
                 f"Error updating 8-K filings for {public_entity.ticker}: {e}"
+            )
+            
+    async def summarize_filings_8k_for(self, ticker: str, after_date = ImportantDates.MSTR_GENESIS_DATE.value):
+        
+        try:
+            # Retrieve all 8-k filings for the entity that are not yet summarized
+            public_entity = self.entity_repo.get_entity_by_ticker(ticker)
+            all_filings_8k = self.filing_8k_repo.get_filings_for_entity_after_date(public_entity, after_date)
+            not_yet_summarized = [
+                filing for filing in all_filings_8k if filing.is_summarized is False
+            ]
+            # Summarize the filings
+            summarizer = Filing_Summarizer_8K()
+            summarized_filings = await summarizer.summarize_filings_optimized(not_yet_summarized)
+            # Update the filings in the db
+            self.filing_8k_repo.update_filings(summarized_filings)
+        except Exception as e:
+            self.logger.error(
+                f"Error summarizing 8-K filings for {ticker}: {e}"
+            )
+            
+            
+    async def update_bitcoin_purchases(self, ticker: str, after_date = ImportantDates.MSTR_GENESIS_DATE.value):
+        try:
+            # Retrieve all 8-k filings for the entity that are not yet summarized
+            public_entity = self.entity_repo.get_entity_by_ticker(ticker)
+            all_filings_8k = self.filing_8k_repo.get_filings_for_entity_after_date(public_entity, after_date)
+            # Extract bitcoin purchases from the filings
+            bitcoin_extractor = Bitcoin_Updates_Extractor()
+            bitcoin_purchases = await bitcoin_extractor.extract_bitcoin_purchases(all_filings_8k)
+            filtered_bitcoin_purchases = [bp for bp in bitcoin_purchases if bp is not None] 
+            purchase_dates = [purchase.purchase_date.to_date() for purchase in filtered_bitcoin_purchases]
+            bitcoin_purchase_amounts = [purchase.btc_purchase_amount for purchase in filtered_bitcoin_purchases]
+            sum_amounts = sum(bitcoin_purchase_amounts)
+            self.logger.info(f"Purchase amounts: {bitcoin_purchase_amounts}")
+            self.logger.info(f"Total BTC purchased: {sum_amounts}")
+            self.logger.info(f"Extracted {len(filtered_bitcoin_purchases)} bitcoin purchases for {ticker}.")
+            # Update the database with the bitcoin purchases
+        except Exception as e:
+            self.logger.error(
+                f"Error updating bitcoin purchases for {ticker}: {e}"
             )
         
         
