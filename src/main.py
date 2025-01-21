@@ -35,7 +35,7 @@ def test_sync():
     start_time = time.time()
     logging.info("Starting to retrieve HTML content for latest filings synchronously.")
     
-    filings = [ Filing_8K.from_metadata(metadata, include_content=True) for metadata in filing_metadatas_8k]
+    filings = [ Filing_8K.from_metadata(metadata) for metadata in filing_metadatas_8k]
     
     end_time = time.time()
     logging.info(f"Finished retrieving HTML content. Time taken: {end_time - start_time} seconds.")
