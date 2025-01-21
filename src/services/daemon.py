@@ -2,7 +2,7 @@ import schedule
 import time
 import logging
 import colorlog
-from services.update_db import add_new_entities, update_sec_filings_for_all_companies
+
 
 
 def setup_logging():
@@ -32,7 +32,7 @@ def setup_logging():
 
 
 def run_daemon():
-    schedule.every().day.at("01:00").do(update_sec_filings_for_all_companies)
+    # schedule.every().day.at("01:00").do()
 
     while True:
         schedule.run_pending()
