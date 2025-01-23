@@ -11,12 +11,14 @@ setup_logging()
 dbu = DatabaseUpdater()
 
 
+dbu.sync_bitcoin_entities() 
+
 async def main():
-    ticker = "MSTR"
-    # # Sync 8-k filings for MSTR
-    # await dbu.sync_filings_8k_for(ticker)
-    # # Summarize 8-k filings for MSTR
-    # await dbu.summarize_filings_8k_for(ticker)
+    ticker = "SMLR"
+    # Sync 8-k filings for MSTR
+    await dbu.sync_filings_8k_for(ticker)
+    # Summarize 8-k filings for MSTR
+    await dbu.summarize_filings_8k_for(ticker)
     # Update bitcoin purchases
     await dbu.update_bitcoin_purchases(ticker)
     

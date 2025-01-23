@@ -2,7 +2,7 @@ from datetime import date
 
 # Base EFTS bitcoin query
 base_bitcoin_8k_company_query = {
-    "q": "(bitcoin OR Bitcoin) AND (FORM 8-K)",
+    "q": "(bitcoin OR Bitcoin OR bitcoins OR Bitcoins)",
     "dateRange": "custom",
     "startdt": "2020-08-01",
     "enddt": date.today(),

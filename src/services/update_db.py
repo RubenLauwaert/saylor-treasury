@@ -9,7 +9,7 @@ from modeling.PublicEntity import PublicEntity
 from modeling.filing.sec_8k.Filing_8K import Filing_8K
 from services.ai.Filing_Summarizer_8K import Filing_Summarizer_8K
 from pymongo.collection import Collection
-from queries import base_bitcoin_8k_company_query
+from queries import base_bitcoin_8k_company_query, base_bitcoin_balance_sheet_query
 from database import public_entity_collection, sec_filing_metadatas_collection, filings_8k_collection
 from services.ai.BTC_Updates_Extractor import Bitcoin_Updates_Extractor
 from util import ImportantDates

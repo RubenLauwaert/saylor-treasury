@@ -65,7 +65,7 @@ class SEC_Filing_Metadata_Repository:
         filings = self.collection.find(
             {
                 "company_cik": company_cik,
-                "primary_doc_description": "8-K"
+                "form": "8-K"
             }
         ).sort("filing_date", -1)
         self.logger.info(
@@ -82,7 +82,7 @@ class SEC_Filing_Metadata_Repository:
         filings = self.collection.find(
             {
                 "company_cik": cik,
-                "primary_doc_description": "8-K",
+                "form": "8-K",
                 "filing_date": {"$gt": date_str},
             }
         ).sort("filing_date", -1)

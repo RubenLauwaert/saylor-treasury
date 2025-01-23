@@ -22,8 +22,8 @@ class ItemExtractor(BaseModel):
             if item_code is None:
                 continue
             for index, element in enumerate(elements):
-                if item_code in element.text:
-                    item_index_dict[item_code] = index
+                if item_code in element.text and len(element.text) < 100:
+                    item_index_dict[item_code] = index 
                     break
         # Create a dictionary to store relevant elements for each item
         item_elements_dict = {}
