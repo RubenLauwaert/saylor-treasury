@@ -6,73 +6,56 @@ from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
 from modeling.filing.sec_8k.Item_8K import Item_8K
 from modeling.filing.sec_8k.ItemCode_8K import ItemCode_8K
 from modeling.parsers.SEC_Filing_Parser_8K import SEC_Filing_Parser_8K
+from modeling.filing.SEC_Filing import SEC_Filing
 import logging
 from config import sec_edgar_settings as ses
 
-class Filing_8K(BaseModel):
-    filing_metadata: SEC_Filing_Metadata
-    content_html_str: Optional[str] = Field(default=None, description="Content of the filing")
-    has_content: bool = Field(default=False, description="Whether the content has been retrieved")
-    is_parsed: bool = Field(default=False, description="Whether the content has been parsed")
-    is_summarized: bool = Field(default=False, description="Whether the content has been summarized")
+
+class Filing_8K(SEC_Filing):
     items: List[Item_8K]
-    
-    
+
     def get_item(self, item_code: ItemCode_8K) -> Optional[Item_8K]:
         for item in self.items:
             if item.code == item_code.value:
                 return item
         return None
-    
-    
+
     @classmethod
-    async def from_metadata_async(cls, filing_metadata: SEC_Filing_Metadata) -> 'Filing_8K':
-        logger = logging.getLogger(Filing_8K.__name__)
-        content_html_str = None    
-        items = []
-        is_parsed = False
-        has_raw_content = False
-     
+    async def from_metadata_async(
+        cls, filing_metadata: SEC_Filing_Metadata
+    ) -> "Filing_8K":
+        logger = logging.getLogger(cls.__name__)
+
+        # Call super method
+        sec_filing = await super().from_metadata_async(filing_metadata)
+
+        # Extract 8-k items from the content
         try:
-            # Retrieve raw html content
-            filing_url = filing_metadata.document_url
-            document = filing_metadata.primary_document
-            headers = {"User-Agent": f"{ses.user_agent_header} ({ses.sec_user_agent_email})"}
-            async with aiohttp.ClientSession(headers=headers) as session:
-                async with session.get(filing_url) as response:
-                    if response.status == 200:
-                        content_html_str = await response.text()
-                        has_raw_content = True
-                        logger.info(f"Retrieved html content : {document}")
-                    else:
-                        logger.info(f"Failed to retrieve content from {filing_url}, status code: {response.status} error: {response.reason}")
-            # Parse raw html content into list of items
-            if content_html_str:
-                items = SEC_Filing_Parser_8K.parse_filing(content_html_str, filing_metadata.items)
-                is_parsed = True
-                logger.info(f"Parsed html content for : {document}")
+            items = SEC_Filing_Parser_8K.parse_filing(
+                sec_filing.content_html_str, item_codes=sec_filing.filing_metadata.items
+            )
+            is_parsed = True
+            return cls(**sec_filing.model_dump(), is_parsed=is_parsed, items=items)
+
         except Exception as e:
-            logger.info(f"Error retrieving content from {filing_url}: {e}")
-        
-        return cls(filing_metadata=filing_metadata, 
-                   content_html_str=content_html_str, 
-                   items=items,
-                   is_parsed=is_parsed,
-                   has_content=has_raw_content)
-        
+            logger.error(f"Error extracting items from 8-K filing: {e}")
+
     @staticmethod
-    async def from_metadatas_async(filing_metadatas: List[SEC_Filing_Metadata]) -> List['Filing_8K']:
+    async def from_metadatas_async(
+        filing_metadatas: List[SEC_Filing_Metadata],
+    ) -> List["Filing_8K"]:
         batch_size = 10
         delay = 1.1  # Slightly more than 1 second to ensure we stay within the limit
         results = []
 
         for i in range(0, len(filing_metadatas), batch_size):
-            batch = filing_metadatas[i:i + batch_size]
-            tasks = [Filing_8K.from_metadata_async(filing_metadata) for filing_metadata in batch]
+            batch = filing_metadatas[i : i + batch_size]
+            tasks = [
+                Filing_8K.from_metadata_async(filing_metadata)
+                for filing_metadata in batch
+            ]
             results.extend(await asyncio.gather(*tasks))
             if i + batch_size < len(filing_metadatas):
                 await asyncio.sleep(delay)
 
         return results
-    
-    
