@@ -37,9 +37,7 @@ class SEC_Filing(BaseModel):
             # Retrieve raw html content
             filing_url = filing_metadata.document_url
             document = filing_metadata.primary_document
-            async with aiohttp.ClientSession(
-                headers=ses.user_agent_header()
-            ) as session:
+            async with aiohttp.ClientSession(headers=ses.user_agent_header) as session:
                 async with session.get(filing_url) as response:
                     if response.status == 200:
                         content_html_str = await response.text()

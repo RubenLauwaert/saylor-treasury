@@ -12,7 +12,7 @@ from config import sec_edgar_settings as ses
 
 
 class Filing_8K(SEC_Filing):
-    items: List[Item_8K]
+    items: List[Item_8K] = Field(default=[], description="Items in the 8-K filing")
 
     def get_item(self, item_code: ItemCode_8K) -> Optional[Item_8K]:
         for item in self.items:
@@ -35,7 +35,11 @@ class Filing_8K(SEC_Filing):
                 sec_filing.content_html_str, item_codes=sec_filing.filing_metadata.items
             )
             is_parsed = True
-            return cls(**sec_filing.model_dump(), is_parsed=is_parsed, items=items)
+            return cls(
+                **sec_filing.model_dump(exclude={"is_parsed", "items"}),
+                is_parsed=is_parsed,
+                items=items,
+            )
 
         except Exception as e:
             logger.error(f"Error extracting items from 8-K filing: {e}")
