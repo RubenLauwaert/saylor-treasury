@@ -7,6 +7,7 @@ from modeling.sec_edgar.submissions.SubmissionsRequest import SubmissionsRequest
 from modeling.sec_edgar.efts.EFTS_Request import EFTS_Request, EFTS_Response
 from modeling.PublicEntity import PublicEntity
 from modeling.filing.sec_8k.Filing_8K import Filing_8K
+from modeling.filing.sec_424B5.Filing_424B5 import Filing_424B5
 from services.ai.Filing_Summarizer_8K import Filing_Summarizer_8K
 from pymongo.collection import Collection
 from queries import base_bitcoin_8k_company_query, base_bitcoin_balance_sheet_query
@@ -184,3 +185,27 @@ class DatabaseUpdater:
             # Update the database with the bitcoin purchases
         except Exception as e:
             self.logger.error(f"Error updating bitcoin purchases for {ticker}: {e}")
+
+    async def sync_filings_424B5_for(
+        self, ticker: str, after_date: date = ImportantDates.MSTR_GENESIS_DATE.value
+    ):
+        try:
+            public_entity = self.entity_repo.get_entity_by_ticker(ticker)
+            # First sync the filing_metadatas for the entity
+            self.sync_filing_metadatas_for(public_entity)
+
+            # Retrieve all 424B5 filing metadatas for the entity
+            filing_424B5_metadatas = (
+                self.metadata_repo.get_specific_filing_metadatas_for_after_date(
+                    ticker, form="424B5", date=after_date
+                )
+            )
+
+            existing_filings_424B5 = await Filing_424B5.from_metadatas_async(
+                filing_424B5_metadatas[0:1]
+            )
+
+        except Exception as e:
+            self.logger.error(
+                f"Error syncing 424B5 filings for {public_entity.ticker}: {e}"
+            )
