@@ -18,33 +18,39 @@ class SEC_Filing_Parser_424B5(BaseModel):
             warnings.filterwarnings("ignore", message="Invalid section type for")
             elements: list = parser.parse(html)
 
+        # Get prospectus (supplement) tables
         table_prospectus_supplement = None
         table_prospectus = None
 
-        # Get prospectus (supplement) tables
         for index, element in enumerate(elements):
             if isinstance(element, TableElement):
                 # retrieve prospectus supplement table
                 if "ABOUT THIS PROSPECTUS SUPPLEMENT" in element.text:
                     logger.info(f"Parsing prospectus supplement table at index {index}")
-                    table_prospectus_supplement = element.text
+                    # Parse prospectus tables
+                    table_prospectus_supplement = (
+                        SEC_Filing_Parser_424B5.parse_prospectus_table(element.text)
+                    )
                 # retrieve prospectus table
                 elif "ABOUT THIS PROSPECTUS" in element.text:
                     logger.info(f"Parsing prospectus table at index {index}")
-                    table_prospectus = element.text
+                    table_prospectus = SEC_Filing_Parser_424B5.parse_prospectus_table(
+                        element.text
+                    )
 
-        # Parse prospectus tables
-        parsed_table_prospectus_supplement = (
-            SEC_Filing_Parser_424B5.parse_prospectus_table(table_prospectus_supplement)
-        )
-        parsed_table_prospectus = SEC_Filing_Parser_424B5.parse_prospectus_table(
-            table_prospectus
-        )
+        for page in table_prospectus_supplement.values():
+            for index, element in enumerate(elements):
+                if page == element.text and len(element.text) < 20:
+                    logger.info(
+                        f"Found page {page} at index {index} in element {element} : {element.text[0:100] if len(element.text) > 100 else element.text}"
+                    )
 
-        logger.info(
-            f"Parsed prospectus supplement table: {parsed_table_prospectus_supplement}"
-        )
-        logger.info(f"Parsed prospectus table: {parsed_table_prospectus}")
+        for page in table_prospectus.values():
+            for index, element in enumerate(elements):
+                if page == element.text and len(element.text) < 20:
+                    logger.info(
+                        f"Found page {page} at index {index} in element {element} : {element.text[0:100] if len(element.text) > 100 else element.text}"
+                    )
 
     @staticmethod
     def parse_prospectus_table(table: str) -> Optional[dict[str, str]]:

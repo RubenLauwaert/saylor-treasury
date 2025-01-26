@@ -25,7 +25,7 @@ dbu = DatabaseUpdater()
 
 
 async def main():
-    ticker = "MSTR"
+    ticker = "MARA"
     # # Sync 8-k filings for MSTR
     # await dbu.sync_filings_8k_for(ticker)
     # Sync 424B5 filings for MSTR
