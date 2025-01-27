@@ -201,6 +201,8 @@ class DatabaseUpdater:
                 )
             )
 
+            filing_dates = [filing.filing_date for filing in filing_424B5_metadatas]
+            self.logger.info(f"Filing dates: {filing_dates}")
             existing_filings_424B5 = await Filing_424B5.from_metadatas_async(
                 filing_424B5_metadatas[0:1]
             )
