@@ -15,6 +15,7 @@ class Prospectus_Titles(Enum):
 
     SUMMARY = "SUMMARY"
     RISK_FACTORS = "RISK FACTORS"
+    THE_OFFERING = "THE OFFERING"
     USE_OF_PROCEEDS = "USE OF PROCEEDS"
     CAPITALIZATION = "CAPITALIZATION"
     DILUTION = "DILUTION"
@@ -56,8 +57,8 @@ class Prospectus_Pages(Enum):
 
 class TOC_Element_424B5(BaseModel):
     title: str
-    page_index: str
-    href_link: str
+    page_index: Optional[str]
+    href_link: Optional[str]
 
 
 class TableOfContent_424B5(BaseModel):
@@ -126,15 +127,54 @@ class SEC_Filing_Parser_424B5(BaseModel):
                 )
 
         # Generate Sections for toc prospectus
-        for index, toc_element in enumerate(toc_prospectus.rows):
-            content = toc_prospectus.get_row_content(soup, index)
-            sections.append(
-                Section_424B5(
-                    toc_element=toc_element,
-                    content=content,
-                    is_prospectus_supplement=False,
+        if toc_prospectus:
+            for index, toc_element in enumerate(toc_prospectus.rows):
+                content = toc_prospectus.get_row_content(soup, index)
+                sections.append(
+                    Section_424B5(
+                        toc_element=toc_element,
+                        content=content,
+                        is_prospectus_supplement=False,
+                    )
                 )
-            )
+
+        # If no table of contents in the filing, parse bold paragraphs as titles
+        if not toc_prospectus_supplement and not toc_prospectus:
+            b_tags = soup.find_all("b")
+            titles = [
+                b_tag.text
+                for b_tag in b_tags
+                if b_tag.text.strip() in [title.value for title in Prospectus_Titles]
+            ]
+            logger.info(f"Found {titles} titles in the filing.")
+
+            # Get content between titles
+            for index, title in enumerate(titles):
+                start_tag = soup.find("b", text=title)
+                logger.info(f"Found start tag: {start_tag}")
+                end_tag = None
+                if index < len(titles) - 1:
+                    end_tag = soup.find("b", text=titles[index + 1])
+                # Parse content between start_tag and end_tag
+                start_tag_next_elements = list(start_tag.next_elements)
+                logger.info(f"Found {len(start_tag_next_elements)} next elements.")
+                content = ""
+                for next_element in start_tag_next_elements:
+                    if next_element == end_tag:
+                        logger.info("End tag found.")
+                        break
+                    else:
+                        if next_element.name == "p":
+                            content += next_element.text
+                sections.append(
+                    Section_424B5(
+                        toc_element=TOC_Element_424B5(
+                            title=title, page_index=None, href_link=None
+                        ),
+                        content=content,
+                        is_prospectus_supplement=False,
+                    )
+                )
         logger.info(f"Parsed {len(sections)} sections.")
         return sections
 

@@ -202,11 +202,11 @@ class DatabaseUpdater:
             filing_dates = [filing.filing_date for filing in filing_424B5_metadatas]
             self.logger.info(f"Filing dates: {filing_dates}")
             existing_filings_424B5 = await Filing_424B5.from_metadatas_async(
-                filing_424B5_metadatas[1:2]
+                [filing_424B5_metadatas[0]]
             )
 
             self.logger.info(
-                f"Existing filings: {existing_filings_424B5[0].get_prospectus_titles()}"
+                f"Existing filings: {[ section.content for section in existing_filings_424B5[0].get_prospectus_sections()]}"
             )
 
         except Exception as e:
