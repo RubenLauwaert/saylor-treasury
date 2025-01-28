@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import List, Optional, Union
 import warnings
 from pydantic import BaseModel, Field
@@ -10,80 +11,174 @@ from sec_parser.semantic_elements.abstract_semantic_element import (
 from bs4 import BeautifulSoup, Tag, PageElement
 
 
-class TOC_Element(BaseModel):
+class Prospectus_Titles(Enum):
+
+    SUMMARY = "SUMMARY"
+    RISK_FACTORS = "RISK FACTORS"
+    USE_OF_PROCEEDS = "USE OF PROCEEDS"
+    CAPITALIZATION = "CAPITALIZATION"
+    DILUTION = "DILUTION"
+    DESCRIPTION_OF_SECURITIES = "DESCRIPTION OF SECURITIES"
+    PLAN_OF_DISTRIBUTION = "PLAN OF DISTRIBUTION"
+    LEGAL_MATTERS = "LEGAL MATTERS"
+    EXPERTS = "EXPERTS"
+    WHERE_YOU_CAN_FIND_MORE_INFORMATION = "WHERE YOU CAN FIND MORE INFORMATION"
+    INCORPORATION_OF_CERTAIN_INFORMATION_BY_REFERENCE = (
+        "INCORPORATION OF CERTAIN INFORMATION BY REFERENCE"
+    )
+
+
+class Prospectus_Supplement_Pages(Enum):
+    S_1 = "S-1"
+    S_2 = "S-2"
+    S_3 = "S-3"
+    S_4 = "S-4"
+    S_5 = "S-5"
+    S_6 = "S-6"
+    S_7 = "S-7"
+    S_8 = "S-8"
+    S_9 = "S-9"
+    S_10 = "S-10"
+
+
+class Prospectus_Pages(Enum):
+    P_1 = "1"
+    P_2 = "2"
+    P_3 = "3"
+    P_4 = "4"
+    P_5 = "5"
+    P_6 = "6"
+    P_7 = "7"
+    P_8 = "8"
+    P_9 = "9"
+    P_10 = "10"
+
+
+class TOC_Element_424B5(BaseModel):
     title: str
     page_index: str
     href_link: str
 
 
-class TableOfContent(BaseModel):
-    rows: List[TOC_Element]
+class TableOfContent_424B5(BaseModel):
+    rows: List[TOC_Element_424B5]
 
-    @staticmethod
-    def get_content_between(soup: Tag, reference_href: str, page_number: str):
+    def get_row_content(self, soup: Tag, row_index: int) -> str:
         logger = logging.getLogger(__class__.__name__)
 
-        # Find the reference tag (e.g., <a> with specific href)
-        reference_tag = soup.find(attrs={"name": reference_href.lstrip("#")})
-        if not reference_tag:
-            logger.info("Reference tag not found.")
+        if row_index > len(self.rows) - 1:
+            logger.error("Row index out of bounds.")
             return None
 
-        # Find the paragraph containing the specified page number (e.g., S-1)
-        page_number_tag = soup.find(text=page_number)
-        if not page_number_tag:
-            logger.info("Page number tag not found.")
-            return None
+        toc_row = self.rows[row_index]
 
-        logger.info(f"Reference tag: {reference_tag}")
-        logger.info(f"Page number tag: {page_number_tag}")
+        start_tag = soup.find(attrs={"name": toc_row.href_link.lstrip("#")})
+        end_tag = None
+        if row_index == len(self.rows) - 1:
+            end_tag = soup.find(text=toc_row.page_index)
+        else:
+            next_toc_row = self.rows[row_index + 1]
+            end_tag = soup.find(attrs={"name": next_toc_row.href_link.lstrip("#")})
 
-        ref_tag_siblings = list(reference_tag.find_parent("p").next_siblings)[0:3]
-        logger.info(ref_tag_siblings)
+        start_tag_next_elements = list(start_tag.next_elements)
+        content = ""
+        for next_element in start_tag_next_elements:
+            if next_element == end_tag:
+                return content
+            else:
+                if next_element.name == "p":
+                    content += next_element.text
+        return None
+
+
+class Section_424B5(BaseModel):
+    toc_element: TOC_Element_424B5
+    content: Optional[str]
+    is_prospectus_supplement: bool
 
 
 class SEC_Filing_Parser_424B5(BaseModel):
 
     @staticmethod
-    def parse_filing(html: str):
+    def parse_filing(html: str) -> List[Section_424B5]:
         logger = logging.getLogger(__class__.__name__)
         soup = BeautifulSoup(html, "lxml")
 
-        # Find table of contents for prospectus supplement and prospectus
-        td_prospectus_supplement: Tag | None = soup.find(
-            text="ABOUT THIS PROSPECTUS SUPPLEMENT"
+        # Extract table of contents for prospectus supplement and prospectus
+        toc_prospectus_supplement = (
+            SEC_Filing_Parser_424B5.extract_toc_prospectus_supplement(soup)
         )
-        td_prospectus: Tag | None = soup.find(text="ABOUT THIS PROSPECTUS")
-        table_prospectus_supplement = td_prospectus_supplement.find_parent("table")
-        table_prospectus = td_prospectus.find_parent("table")
 
-        parsed_table_prospectus_supplement = None
-        parsed_table_prospectus = None
+        toc_prospectus = SEC_Filing_Parser_424B5.extract_toc_prospectus(soup)
 
-        # If found parse the tables
-        if table_prospectus_supplement is not None:
-            parsed_table_prospectus_supplement = (
-                SEC_Filing_Parser_424B5.parse_table_of_contents(
-                    table_prospectus_supplement
+        # Generate Sections from the table of contents
+        sections = []
+        # Generate Sections for toc prospectus supplements
+        if toc_prospectus_supplement:
+            for index, toc_element in enumerate(toc_prospectus_supplement.rows):
+                content = toc_prospectus_supplement.get_row_content(soup, index)
+                sections.append(
+                    Section_424B5(
+                        toc_element=toc_element,
+                        content=content,
+                        is_prospectus_supplement=True,
+                    )
+                )
+
+        # Generate Sections for toc prospectus
+        for index, toc_element in enumerate(toc_prospectus.rows):
+            content = toc_prospectus.get_row_content(soup, index)
+            sections.append(
+                Section_424B5(
+                    toc_element=toc_element,
+                    content=content,
+                    is_prospectus_supplement=False,
                 )
             )
-
-        if table_prospectus is not None:
-            parsed_table_prospectus = SEC_Filing_Parser_424B5.parse_table_of_contents(
-                table_prospectus
-            )
-
-        first_row = parsed_table_prospectus_supplement.rows[0]
-        content_between = SEC_Filing_Parser_424B5.get_content_between(
-            soup, first_row.href_link, first_row.page_index
-        )
-
-        logger.info(
-            f"Content between reference : {first_row.href_link} and page number : {first_row.page_index} is: \n\n {content_between}"
-        )
+        logger.info(f"Parsed {len(sections)} sections.")
+        return sections
 
     @staticmethod
-    def parse_table_of_contents(table: Tag) -> TableOfContent:
+    def extract_toc_prospectus_supplement(soup: Tag) -> Optional[TableOfContent_424B5]:
+        logger = logging.getLogger(__class__.__name__)
+        tables = soup.find_all("table")
+        for table in tables:
+            # Check if table contains an <a> tag with common prospectus titles
+            a_tags = table.find_all("a")
+            for a_tag in a_tags:
+                if a_tag.text.strip() in [title.value for title in Prospectus_Titles]:
+                    # Check if it is prospectus supplement or prospectus
+                    td_tags = table.find_all("td")
+                    for td_tag in td_tags:
+                        if td_tag.text.strip() in [
+                            page.value for page in Prospectus_Supplement_Pages
+                        ]:
+                            return SEC_Filing_Parser_424B5.parse_table_of_contents(
+                                table
+                            )
+        return None
+
+    @staticmethod
+    def extract_toc_prospectus(soup: Tag) -> Optional[TableOfContent_424B5]:
+        tables = soup.find_all("table")
+        for table in tables:
+            # Check if table contains an <a> tag with common prospectus titles
+            a_tags = table.find_all("a")
+            for a_tag in a_tags:
+                if a_tag.text.strip() in [title.value for title in Prospectus_Titles]:
+                    # Check if it is prospectus supplement or prospectus
+                    td_tags = table.find_all("td")
+                    for td_tag in td_tags:
+                        if td_tag.text.strip() in [
+                            page.value for page in Prospectus_Pages
+                        ]:
+                            return SEC_Filing_Parser_424B5.parse_table_of_contents(
+                                table
+                            )
+        return None
+
+    @staticmethod
+    def parse_table_of_contents(table: Tag) -> TableOfContent_424B5:
         logger = logging.getLogger(__class__.__name__)
         toc_elements = []
 
@@ -94,10 +189,10 @@ class SEC_Filing_Parser_424B5(BaseModel):
             if parsed_row:
                 toc_elements.append(parsed_row)
 
-        return TableOfContent(rows=toc_elements)
+        return TableOfContent_424B5(rows=toc_elements)
 
     @staticmethod
-    def parse_toc_row(row: Tag) -> Union[TOC_Element, None]:
+    def parse_toc_row(row: Tag) -> Union[TOC_Element_424B5, None]:
         logger = logging.getLogger(__class__.__name__)
         result = None
 
@@ -116,5 +211,7 @@ class SEC_Filing_Parser_424B5(BaseModel):
             # href of a_tag is the link
             link = a_tag.get("href")
 
-            result = TOC_Element(title=row_title, page_index=page_index, href_link=link)
+            result = TOC_Element_424B5(
+                title=row_title, page_index=page_index, href_link=link
+            )
         return result

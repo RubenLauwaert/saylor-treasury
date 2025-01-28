@@ -78,7 +78,11 @@ class PublicEntity(BaseModel):
                 break
 
         # 4. Extract the name before the ticker symbol
-        name_before_ticker = display_name.split(f"({ticker_val})")[0].strip() if ticker_val else display_name
+        name_before_ticker = (
+            display_name.split(f"({ticker_val})")[0].strip()
+            if ticker_val
+            else display_name
+        )
 
         # 5. Clean up the name by removing redundant data
         name_cleaned = re.sub(r"\s*\(.*?\)\s*", "", name_before_ticker).strip()

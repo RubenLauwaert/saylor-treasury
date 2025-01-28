@@ -2,7 +2,11 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
 from modeling.filing.SEC_Filing import SEC_Filing
 from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
-from modeling.parsers.SEC_Filing_Parser_424B5 import SEC_Filing_Parser_424B5
+from modeling.parsers.SEC_Filing_Parser_424B5 import (
+    SEC_Filing_Parser_424B5,
+    Section_424B5,
+    TableOfContent_424B5,
+)
 import asyncio
 
 
@@ -13,12 +17,35 @@ class Filing_424B5(SEC_Filing):
     (typically filed using Form S-3 or F-3). The 424B5 provides the specific terms and conditions of the offering.
     """
 
-    table_prospectus_supplement: Optional[str] = Field(
+    table_prospectus_supplement: Optional[TableOfContent_424B5] = Field(
         default=None, description="Prospectus supplement table"
     )
-    table_prospectus: Optional[str] = Field(
+    table_prospectus: Optional[TableOfContent_424B5] = Field(
         default=None, description="Prospectus table"
     )
+
+    sections: List[Section_424B5] = Field(
+        default=[], description="Sections of the filing"
+    )
+
+    def get_prospectus_supplement_titles(self) -> List[str]:
+        return [
+            section.toc_element.title
+            for section in self.get_prospectus_supplement_sections()
+        ]
+
+    def get_prospectus_titles(self) -> List[str]:
+        return [section.toc_element.title for section in self.get_prospectus_sections()]
+
+    def get_prospectus_supplement_sections(self) -> List[Section_424B5]:
+        return [
+            section for section in self.sections if section.is_prospectus_supplement
+        ]
+
+    def get_prospectus_sections(self) -> List[Section_424B5]:
+        return [
+            section for section in self.sections if not section.is_prospectus_supplement
+        ]
 
     @field_validator("filing_metadata", check_fields=False)
     def validate_form_type(cls, value: SEC_Filing_Metadata):
@@ -35,10 +62,14 @@ class Filing_424B5(SEC_Filing):
         sec_filing = await super().from_metadata_async(filing_metadata)
 
         # Parse 424B5 filing with specific parser
-        SEC_Filing_Parser_424B5.parse_filing(sec_filing.content_html_str)
+        sections = SEC_Filing_Parser_424B5.parse_filing(sec_filing.content_html_str)
         is_parsed = True
 
-        return cls(**sec_filing.model_dump(exclude={"is_parsed"}), is_parsed=is_parsed)
+        return cls(
+            **sec_filing.model_dump(exclude={"is_parsed", "sections"}),
+            is_parsed=is_parsed,
+            sections=sections
+        )
 
     @staticmethod
     async def from_metadatas_async(

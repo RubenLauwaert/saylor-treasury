@@ -19,6 +19,7 @@ from database import (
 from services.ai.BTC_Updates_Extractor import Bitcoin_Updates_Extractor
 from util import ImportantDates
 from logging import Logger
+from services.edgar import retrieve_public_entities
 
 
 class DatabaseUpdater:
@@ -42,25 +43,22 @@ class DatabaseUpdater:
             self.logger.error(f"Error initializing database repositories: {e}")
 
     def sync_bitcoin_entities(self):
-        existing_entities = self.entity_repo.get_all_entities()
-        existing_ciks = {entity.cik for entity in existing_entities}
+
         try:
-            efts_response = EFTS_Request(query=base_bitcoin_8k_company_query)
-            if efts_response is not None:
-                all_entities = efts_response.get_entities()
-                new_entities = [
-                    entity for entity in all_entities if entity.cik not in existing_ciks
-                ]
-                new_entity_tickers = {new_entity.ticker for new_entity in new_entities}
-                if len(new_entities) > 0:
-                    self.entity_repo.add_entities(new_entities)
-                    self.logger.info(
-                        f"Added new entities to db with tickers: {new_entity_tickers}"
-                    )
-                else:
-                    logging.info(f"No new entities to add to db !")
+            # Retrieve all public entities via Edgar API
+            all_entities = retrieve_public_entities()
+            # Retrieve all entities in the database
+            db_entities = self.entity_repo.get_all_entities()
+            db_ciks = {entity.cik for entity in db_entities}
+            # Find new entities to add to the database
+            new_entities = [
+                entity for entity in all_entities if entity.cik not in db_ciks
+            ]
+            if len(new_entities) > 0:
+                self.entity_repo.add_entities(new_entities)
+            self.logger.info(f"Synced {len(new_entities)} new entities.")
         except Exception as e:
-            self.logger.error(f"Error adding new entities to database: {e}")
+            self.logger.error(f"Error syncing bitcoin entities: {e}")
 
     def sync_filing_metadatas_for(self, public_entity: PublicEntity):
         latest_filing_date = self.metadata_repo.get_latest_filing_metadata_date_for(
@@ -204,7 +202,11 @@ class DatabaseUpdater:
             filing_dates = [filing.filing_date for filing in filing_424B5_metadatas]
             self.logger.info(f"Filing dates: {filing_dates}")
             existing_filings_424B5 = await Filing_424B5.from_metadatas_async(
-                filing_424B5_metadatas[0:1]
+                filing_424B5_metadatas[1:2]
+            )
+
+            self.logger.info(
+                f"Existing filings: {existing_filings_424B5[0].get_prospectus_titles()}"
             )
 
         except Exception as e:
