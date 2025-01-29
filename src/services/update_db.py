@@ -205,9 +205,7 @@ class DatabaseUpdater:
                 [filing_424B5_metadatas[0]]
             )
 
-            self.logger.info(
-                f"Existing filings: {[ section.content for section in existing_filings_424B5[0].get_prospectus_sections()]}"
-            )
+            self.logger.info(f"First filing: {existing_filings_424B5[0]}")
 
         except Exception as e:
             self.logger.error(
