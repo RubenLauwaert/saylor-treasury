@@ -30,6 +30,29 @@ class Filing_424B5(SEC_Filing):
         default=[], description="Generic sections of the filing (If no TOC is found)"
     )
 
+    # Getters for titles
+    def get_prospectus_supplement_titles(self) -> List[str]:
+        return [
+            element.title
+            for element in self.prospectus_supplement.table_of_content.elements
+        ]
+
+    def get_prospectus_titles(self) -> List[str]:
+        return [element.title for element in self.prospectus.table_of_content.elements]
+
+    def get_generic_section_titles(self) -> List[str]:
+        return [section.title for section in self.generic_sections]
+
+    # Getters for content
+    def get_prospectus_supplement_content(self) -> List[str]:
+        return [section.content for section in self.prospectus_supplement.sections]
+
+    def get_prospectus_content(self) -> List[str]:
+        return [section.content for section in self.prospectus.sections]
+
+    def get_generic_section_content(self) -> List[str]:
+        return [section.content for section in self.generic_sections]
+
     @field_validator("filing_metadata", check_fields=False)
     def validate_form_type(cls, value: SEC_Filing_Metadata):
         if not value.form == "424B5":
@@ -51,6 +74,21 @@ class Filing_424B5(SEC_Filing):
         )
 
         return filing_424B5
+
+    def __str__(self):
+
+        # Prospectus supplement
+        prospecetus_supplement_str = f"\n{'-' * len('PROSPECTUS SUPPLEMENT')}\nPROSPECTUS SUPPLEMENT:\n{'-' * len('PROSPECTUS SUPPLEMENT')}\n\n"
+        if self.prospectus_supplement:
+            titles = self.get_prospectus_supplement_titles()
+            sections = self.get_prospectus_supplement_content()
+            for index, title in enumerate(titles):
+                prospecetus_supplement_str += f"{title}\n\n"
+                prospecetus_supplement_str += (
+                    f"{sections[index][0:100]} . . . \n {sections[index][-101:-1]}\n\n"
+                )
+
+        return prospecetus_supplement_str
 
     @staticmethod
     async def from_metadatas_async(
