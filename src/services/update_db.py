@@ -8,6 +8,7 @@ from modeling.sec_edgar.efts.EFTS_Request import EFTS_Request, EFTS_Response
 from modeling.PublicEntity import PublicEntity
 from modeling.filing.sec_8k.Filing_8K import Filing_8K
 from modeling.filing.sec_424B5.Filing_424B5 import Filing_424B5
+from modeling.filing.sec_10q.Filing_10Q import Filing_10Q
 from services.ai.Filing_Summarizer_8K import Filing_Summarizer_8K
 from pymongo.collection import Collection
 from queries import base_bitcoin_8k_company_query, base_bitcoin_balance_sheet_query
@@ -210,4 +211,32 @@ class DatabaseUpdater:
         except Exception as e:
             self.logger.error(
                 f"Error syncing 424B5 filings for {public_entity.ticker}: {e}"
+            )
+
+    async def sync_filings_10Q_for(
+        self, ticker: str, after_date: date = ImportantDates.MSTR_GENESIS_DATE.value
+    ):
+        try:
+            public_entity = self.entity_repo.get_entity_by_ticker(ticker)
+            # First sync the filing_metadatas for the entity
+            self.sync_filing_metadatas_for(public_entity)
+
+            # Retrieve all 424B5 filing metadatas for the entity
+            filing_10q_metadatas = (
+                self.metadata_repo.get_specific_filing_metadatas_for_after_date(
+                    ticker, form="10-Q", date=after_date
+                )
+            )
+
+            filing_dates = [filing.filing_date for filing in filing_10q_metadatas]
+            self.logger.info(f"Filing dates: {filing_dates}")
+            existing_filings_10Q = await Filing_10Q.from_metadatas_async(
+                [filing_10q_metadatas[1]]
+            )
+
+            # self.logger.info(f"First filing: {existing_filings_10Q[0]}")
+
+        except Exception as e:
+            self.logger.error(
+                f"Error syncing 10Q filings for {public_entity.ticker}: {e}"
             )

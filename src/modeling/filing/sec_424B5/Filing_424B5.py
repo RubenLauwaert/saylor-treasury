@@ -1,5 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
+from modeling.filing.util import FormType
 from modeling.filing.SEC_Filing import SEC_Filing
 from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
 from modeling.parsers.util import (
@@ -55,7 +56,7 @@ class Filing_424B5(SEC_Filing):
 
     @field_validator("filing_metadata", check_fields=False)
     def validate_form_type(cls, value: SEC_Filing_Metadata):
-        if not value.form == "424B5":
+        if not value.form == FormType.FOUR_TWO_FOUR_B_FIVE:
             raise ValueError("Filing is not of type 424B5")
         return value
 
@@ -63,7 +64,9 @@ class Filing_424B5(SEC_Filing):
     async def from_metadata_async(
         cls, filing_metadata: SEC_Filing_Metadata
     ) -> "Filing_424B5":
-        from modeling.parsers.SEC_Filing_Parser_424B5 import SEC_Filing_Parser_424B5
+        from modeling.parsers.sec_424B5.SEC_Filing_Parser_424B5 import (
+            SEC_Filing_Parser_424B5,
+        )
 
         # Call super method (load html_content)
         sec_filing = await super().from_metadata_async(filing_metadata)

@@ -43,7 +43,6 @@ class Parser_Generic_TOC(BaseModel):
         toc_table_tag = Parser_Generic_TOC._extract_toc_html_table_tag(
             soup, toc_titles, is_toc_supplement
         )
-
         # Initialize table of content
         toc = Table_Of_Content_Generic()
 
@@ -69,7 +68,6 @@ class Parser_Generic_TOC(BaseModel):
             if is_supplement_table
             else [page.value for page in TOC_Pages]
         )
-
         # Find all tables
         tables: ResultSet[PageElement] = soup.find_all("table")
         # Check if TOC table
@@ -81,10 +79,12 @@ class Parser_Generic_TOC(BaseModel):
             )
             # Check if table contains (parts of) the given TOC titles --> TOC table
             contains_correct_title = any(
-                any(title in a_tag.text.strip() for title in toc_title_values)
+                any(
+                    title.lower() in a_tag.text.lower().strip()
+                    for title in toc_title_values
+                )
                 for a_tag in table.find_all("a")
             )
-
             if contains_page_numbers and contains_correct_title:
                 return table
 
@@ -97,31 +97,36 @@ class Parser_Generic_TOC(BaseModel):
 
         # Get a_tag in row
         a_tag = row.find("a")
-
         # If row contains a link, parse row --> valid toc row
-        if a_tag:
+        if a_tag is not None:
             # Get cells of row (td elements) and filter out cells containing '\xa0'
             cells = [cell for cell in row.find_all("td") if "\xa0" not in cell.text]
-            # Extract item if cell text contains the word "item"
-            item = next(
-                (cell.text for cell in cells if "item" in cell.text.lower()), None
-            )
-            # Element with a_tag is the row_title
-            title = a_tag.find_parent("td").text
-            # Last element is page_index
-            page_index = cells[-1].text if cells else ""
-            # href of a_tag is the link
-            link = a_tag.get("href")
-            # Find index of element in soup
-            referenced_tag = soup.find(attrs={"name": link.lstrip("#")})
-            element_index_in_soup = soup.find_all(True).index(referenced_tag)
-            toc_element = TOC_Element_Generic(
-                item_str=item,
-                title=title,
-                page_index=page_index,
-                href_link=link,
-                element_index_in_soup=element_index_in_soup,
-            )
+
+            if len(cells) == 0:
+                return toc_element
+            else:
+                # Extract item if cell text contains the word "item"
+                item = next(
+                    (cell.text for cell in cells if "item" in cell.text.lower()), None
+                )
+                # Element with a_tag is the row_title
+                title = a_tag.find_parent("td").text
+                # Last element is page_index
+                page_index = cells[-1].text if cells else ""
+                # href of a_tag is the link
+                link = a_tag.get("href")
+                # Find index of element in soup
+                referenced_tag = soup.find(
+                    attrs={"name": link.lstrip("#")}
+                ) or soup.find(id=link.lstrip("#"))
+                element_index_in_soup = soup.find_all(True).index(referenced_tag)
+                toc_element = TOC_Element_Generic(
+                    item_str=item,
+                    title=title,
+                    page_index=page_index,
+                    href_link=link,
+                    element_index_in_soup=element_index_in_soup,
+                )
 
         return toc_element
 
@@ -140,7 +145,9 @@ class Parser_Generic_TOC(BaseModel):
             [
                 element.text
                 for element in content_elements
-                if element.name == "p" or element.name == "table"
+                if element.name == "p"
+                or element.name == "table"
+                or element.name == "font"
             ]
         )
 

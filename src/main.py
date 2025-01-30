@@ -25,11 +25,13 @@ dbu.sync_bitcoin_entities()
 
 
 async def main():
-    ticker = "MARA"
+    ticker = "MSTR"
+    # Sync filings 10Q
+    await dbu.sync_filings_10Q_for(ticker)
     # # Sync 8-k filings for MSTR
     # await dbu.sync_filings_8k_for(ticker)
-    # Sync 424B5 filings for MSTR
-    await dbu.sync_filings_424B5_for(ticker)
+    # # Sync 424B5 filings for MSTR
+    # await dbu.sync_filings_424B5_for(ticker)
     # # Summarize 8-k filings for MSTR
     # await dbu.summarize_filings_8k_for(ticker)
     # # Update bitcoin purchases

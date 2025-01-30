@@ -5,7 +5,7 @@ from typing import List, Optional
 from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
 from modeling.filing.sec_8k.Item_8K import Item_8K
 from modeling.filing.sec_8k.ItemCode_8K import ItemCode_8K
-from modeling.parsers.SEC_Filing_Parser_8K import SEC_Filing_Parser_8K
+from modeling.parsers.sec_8k.SEC_Filing_Parser_8K import SEC_Filing_Parser_8K
 from modeling.filing.SEC_Filing import SEC_Filing
 import logging
 from config import sec_edgar_settings as ses

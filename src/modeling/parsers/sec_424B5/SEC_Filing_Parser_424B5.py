@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field
 import logging
 from modeling.filing.SEC_Filing import SEC_Filing
 from modeling.filing.sec_424B5.Filing_424B5 import Filing_424B5
-from modeling.parsers.Filing_Parser_Generic import Filing_Parser_Generic
-from modeling.parsers.Parser_Generic_TOC import Parser_Generic_TOC
+from modeling.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
+from modeling.parsers.generic.Parser_Generic_TOC import Parser_Generic_TOC
 from modeling.parsers.util import (
     Parsed_Filing_Generic_TOC,
     TOC_Element_Generic,
