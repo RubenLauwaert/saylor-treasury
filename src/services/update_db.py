@@ -234,7 +234,7 @@ class DatabaseUpdater:
                 [filing_10q_metadatas[1]]
             )
 
-            # self.logger.info(f"First filing: {existing_filings_10Q[0]}")
+            self.logger.info(f"TOC of First 10-Q: {existing_filings_10Q[0]}")
 
         except Exception as e:
             self.logger.error(

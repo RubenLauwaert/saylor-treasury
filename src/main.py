@@ -25,7 +25,7 @@ dbu.sync_bitcoin_entities()
 
 
 async def main():
-    ticker = "MSTR"
+    ticker = "TSLA"
     # Sync filings 10Q
     await dbu.sync_filings_10Q_for(ticker)
     # # Sync 8-k filings for MSTR

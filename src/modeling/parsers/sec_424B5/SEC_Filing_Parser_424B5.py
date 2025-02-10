@@ -9,7 +9,7 @@ from modeling.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
 from modeling.parsers.generic.Parser_Generic_TOC import Parser_Generic_TOC
 from modeling.parsers.util import (
     Parsed_Filing_Generic_TOC,
-    TOC_Element_Generic,
+    TOC_Row_Generic,
     Parsed_Filing_Generic,
 )
 from bs4 import BeautifulSoup, Tag, PageElement

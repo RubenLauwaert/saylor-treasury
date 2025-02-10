@@ -26,5 +26,8 @@ class SEC_Filing_Parser_10Q(BaseModel):
         soup = BeautifulSoup(html, "lxml-xml")
         # Extract 10-Q table of content
         toc = Parser_Generic_TOC._extract_table_of_content(soup, TOC_Titles_10Q)
-        logger.info(f"Table of content: {toc}")
-        return sec_filing
+        return Filing_10Q(
+            **sec_filing.model_dump(exclude={"is_parsed", "table_of_content"}),
+            table_of_content=toc,
+            is_parsed=True
+        )

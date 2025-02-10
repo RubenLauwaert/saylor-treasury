@@ -47,18 +47,21 @@ class TOC_Pages(str, Enum):
 
 
 # Table of Content Element
-class TOC_Element_Generic(BaseModel):
+class TOC_Row_Generic(BaseModel):
+    is_item_row: bool = Field(default=False)
+    is_page_row: bool = Field(default=False)
     item_str: Optional[str]
+    page_str: Optional[str]
     title: str
-    page_index: str
+    page_number: Optional[int]
     href_link: str
     element_index_in_soup: int
 
 
 class Table_Of_Content_Generic(BaseModel):
-    elements: list[TOC_Element_Generic] = Field(default=[])
+    elements: list[TOC_Row_Generic] = Field(default=[])
 
-    def add_element(self, toc_element: TOC_Element_Generic):
+    def add_element(self, toc_element: TOC_Row_Generic):
         self.elements.append(toc_element)
 
     def is_empty(self):

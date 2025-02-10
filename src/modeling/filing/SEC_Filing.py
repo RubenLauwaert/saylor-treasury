@@ -76,3 +76,11 @@ class SEC_Filing(BaseModel):
                 await asyncio.sleep(delay)
 
         return results
+
+    def __str__(self):
+        document_url = self.filing_metadata.document_url
+        primary_document = self.filing_metadata.primary_document
+        cik = self.filing_metadata.company_cik
+        filing_date = self.filing_metadata.filing_date
+        accession_number = self.filing_metadata.accession_number
+        return f"\n- Document URL: {document_url} \n- Primary document : {primary_document} \n- Filing date : {filing_date}\n"

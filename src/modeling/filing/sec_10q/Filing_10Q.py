@@ -23,6 +23,10 @@ class Filing_10Q(SEC_Filing):
     It includes information such as the company's income, earnings per share, and cash flow, as well as management's discussion and analysis of the financial condition and results of operations.
     """
 
+    table_of_content: Table_Of_Content_Generic = Field(
+        default=None, description="Table of content of the 10-Q filing"
+    )
+
     @field_validator("filing_metadata", check_fields=False)
     def validate_form_type(cls, value: SEC_Filing_Metadata):
         if not value.form == FormType.TEN_Q:
@@ -66,3 +70,38 @@ class Filing_10Q(SEC_Filing):
                 await asyncio.sleep(delay)
 
         return results
+
+    def __str__(self):
+        terminal_width = 80  # Assuming a standard terminal width of 80 characters
+        title = "10-Q Filing"
+        str_title_10_q = (
+            f"\n{'-' * terminal_width}\n"
+            f"{title.center(terminal_width)}\n"
+            f"{'-' * terminal_width}\n"
+        )
+
+        # General information about SEC filing
+        filing_str = super().__str__()
+
+        # Table of content
+        toc_title = "TABLE OF CONTENT"
+        toc_str = (
+            f"\n{'-' * terminal_width}\n"
+            f"{toc_title.center(terminal_width)}\n"
+            f"{'-' * terminal_width}\n\n"
+        )
+
+        toc_content_str = ""
+        # Add only the titles of the table_of_content
+        if self.table_of_content:
+            for toc_element in self.table_of_content.elements:
+                if toc_element.is_page_row:
+                    toc_content_str += f"{toc_element.title}\n"
+                elif toc_element.is_item_row:
+                    toc_content_str += (
+                        f"   {toc_element.item_str}     {toc_element.title}\n"
+                    )
+                else:
+                    toc_content_str += f"     {toc_element.title}\n"
+
+        return str_title_10_q + filing_str + toc_str + toc_content_str
