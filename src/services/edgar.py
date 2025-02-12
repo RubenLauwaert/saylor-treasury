@@ -1,6 +1,5 @@
-from typing import List
+from typing import List, Set
 from config import sec_edgar_settings as ses
-from modeling.PublicEntity import PublicEntity
 from modeling.sec_edgar.efts.EFTS_Response import EFTS_Hit, EFTS_Response
 import requests
 import logging
@@ -9,25 +8,25 @@ import aiohttp
 import asyncio
 
 
-def retrieve_public_entities() -> List[PublicEntity]:
-    public_entities = []
-    url_str = ses.company_tickers_url
-    request_header = ses.user_agent_header
-    response = requests.get(url=url_str, headers=request_header)
+# def retrieve_public_entities() -> List[PublicEntity]:
+#     public_entities = []
+#     url_str = ses.company_tickers_url
+#     request_header = ses.user_agent_header
+#     response = requests.get(url=url_str, headers=request_header)
 
-    if response.status_code == 200:
-        tickers_and_ciks = response.json()
-        for entity in tickers_and_ciks.values():
-            cik = str(entity["cik_str"]).zfill(10)
-            ticker = entity["ticker"]
-            title = entity["title"]
-            public_entities.append(PublicEntity(name=title, ticker=ticker, cik=cik))
-    else:
-        raise Exception(
-            f"Failed to retrieve public entities -  Status code { response.status }"
-        )
+#     if response.status_code == 200:
+#         tickers_and_ciks = response.json()
+#         for entity in tickers_and_ciks.values():
+#             cik = str(entity["cik_str"]).zfill(10)
+#             ticker = entity["ticker"]
+#             title = entity["title"]
+#             public_entities.append(PublicEntity(name=title, ticker=ticker, cik=cik))
+#     else:
+#         raise Exception(
+#             f"Failed to retrieve public entities -  Status code { response.status }"
+#         )
 
-    return public_entities
+#     return public_entities
 
 
 def retrieve_submissions_for_entity(cik: str):
@@ -43,6 +42,20 @@ def retrieve_submissions_for_entity(cik: str):
         raise Exception(
             f"Failed to retrieve submissions for entity {cik} - Status code { response.status }"
         )
+        
+async def retrieve_submissions_for_entity_async(cik: str) -> dict:
+    url_str = ses.get_formatted_entity_submissions_url(cik=cik)
+    request_header = ses.user_agent_header
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url=url_str, headers=request_header) as response:
+            if response.status == 200:
+                result = await response.json()
+                return result
+            else:
+                raise Exception(
+                    f"Failed to retrieve submissions for entity {cik} - Status code {response.status}"
+                )
 
 
 def edgar_full_text_search(q: dict) -> List[requests.Response]:
@@ -144,7 +157,15 @@ async def get_hits_from_queries_async(queries: List[dict]) -> List[EFTS_Hit]:
         for efts_response in efts_responses:
             hits.extend(efts_response.get_hits())
     logger.info(f"Got {len(hits)} hits from {len(queries)} queries")
+    
     return hits
+
+async def get_entity_ciks_from_queries_async(queries: List[dict]) -> Set[str]:
+    logger = logging.getLogger(__name__)
+    hits: List[EFTS_Hit] = await get_hits_from_queries_async(queries)
+    ciks = set([hit.get_source_cik() for hit in hits])
+    logger.info(f"Got {len(ciks)} entities from {len(queries)} queries")
+    return ciks
     
     
     

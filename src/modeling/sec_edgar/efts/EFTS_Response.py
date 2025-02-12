@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, List, Any
 from datetime import date
 
-from modeling.PublicEntity import PublicEntity
 
 
 class EFTS_Hit_Source(BaseModel):
@@ -68,6 +67,7 @@ class EFTS_Hits_Dict(BaseModel):
 
 
 class EFTS_Response(BaseModel):
+    
     took: int = Field(
         ..., description="The number of milliseconds it took to process the request."
     )
@@ -89,9 +89,5 @@ class EFTS_Response(BaseModel):
             return self.hits.hits
         return []
 
-    def get_entities(self) -> List[PublicEntity]:
-        
-        entity_full_names: List[str] = [bucket['key'] for bucket in self.aggregations["entity_filter"]["buckets"]]
-        entities = [ PublicEntity.map_to_entity(entity_name) for entity_name in entity_full_names]
-        return entities
+
 
