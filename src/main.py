@@ -1,6 +1,6 @@
 from services.update_db import DatabaseUpdater
 from services.daemon import setup_logging
-from services.edgar import edgar_full_text_search, get_hits_from_queries
+from services.edgar import get_hits_from_queries_async, get_hits_from_queries
 
 from database import (
     public_entity_collection,
@@ -13,6 +13,8 @@ from config import sec_edgar_settings as ses
 import asyncio
 import json
 import requests
+from datetime import date
+
 
 setup_logging()
 
@@ -22,45 +24,40 @@ filings_8k_repo = SEC_Filing_8K_Repository(filings_8k_collection)
 filings_8k = filings_8k_repo.get_filings_for_entity
 
 # Send efts request
-q_1 = {
-    "q": 'purchased NEAR(5) bitcoin -"bitcoin mining"',
+
+main_bitcoin_entity_query = {
+    "q": 'bitcoin',
     "forms": "8-K",
     "dateRange": "custom",
-    "startdt": "2025-01-12",
-    "enddt": "2025-02-11",
+    "startdt": "2020-08-10",
+    "enddt": date.today().strftime("%Y-%m-%d"), 
     "category": "custom",
 }
 
-q_2 = {
-    "q": 'purchase NEAR(5) bitcoin -"bitcoin mining"',
+main_bitcoin_entity_query_2 = {
+    "q": 'acquire NEAR(5) bitcoin',
     "forms": "8-K",
     "dateRange": "custom",
-    "startdt": "2025-01-12",
-    "enddt": "2025-02-11",
+    "startdt": "2020-08-10",
+    "enddt": date.today().strftime("%Y-%m-%d"), 
     "category": "custom",
 }
 
-q_3 = {
-    "q": 'acquire NEAR(5) bitcoin -"bitcoin mining"',
+main_bitcoin_entity_query_3 = {
+    "q": 'add NEAR(5) bitcoin',
     "forms": "8-K",
     "dateRange": "custom",
-    "startdt": "2025-01-12",
-    "enddt": "2025-02-11",
+    "startdt": "2020-08-10",
+    "enddt": date.today().strftime("%Y-%m-%d"), 
     "category": "custom",
 }
 
-q_4 = {
-    "q": 'acquired NEAR(5) bitcoin -"bitcoin mining"',
-    "forms": "8-K",
-    "dateRange": "custom",
-    "startdt": "2025-01-12",
-    "enddt": "2025-02-11",
-    "category": "custom",
-}
+# Send efts request
 
 
 
-hits = get_hits_from_queries([q_1, q_2, q_3, q_4])
+
+# hits = get_hits_from_queries([main_bitcoin_entity_query])
 
 # # DatabaseUpdater
 # dbu = DatabaseUpdater()
@@ -69,21 +66,8 @@ hits = get_hits_from_queries([q_1, q_2, q_3, q_4])
 # dbu.sync_bitcoin_entities()
 
 
-# async def main():
-#     ticker = "TSLA"
-#     # # Sync filings 10Q
-#     # await dbu.sync_filings_10Q_for(ticker)
-#     # # Sync 8-k filings for MSTR
-#     # await dbu.sync_filings_8k_for(ticker)
-#     # # Sync 424B5 filings for MSTR
-#     # await dbu.sync_filings_424B5_for(ticker)
-#     # # Summarize 8-k filings for MSTR
-#     # await dbu.summarize_filings_8k_for(ticker)
-#     # # Update bitcoin purchases
-#     # await dbu.update_bitcoin_purchases(ticker)
-
-#     await dbu.sync_filings_8k_for("TZUP")
-#     await dbu.update_bitcoin_purchases("TZUP")
+async def main():
+    hits = await get_hits_from_queries_async([main_bitcoin_entity_query])
 
 
-# asyncio.run(main())
+asyncio.run(main())
