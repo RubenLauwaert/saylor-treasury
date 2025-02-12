@@ -39,3 +39,16 @@ def retrieve_submissions_for_entity(cik: str):
         raise Exception(
             f"Failed to retrieve submissions for entity {cik} - Status code { response.status }"
         )
+
+
+def edgar_full_text_search(q: dict) -> requests.Response:
+    url_str = ses.base_efts_url
+    request_header = ses.user_agent_header
+    response = requests.get(url=url_str, params=q, headers=request_header)
+
+    if response.status_code == 200:
+        return response
+    else:
+        raise Exception(
+            f"Failed to retrieve full text search results - Status code { response.status }"
+        )

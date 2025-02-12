@@ -37,6 +37,7 @@ class SECEdgarAPISettings(BaseSettings):
     company_tickers_url: str = Field("https://www.sec.gov/files/company_tickers.json")
     base_company_facts_url: str = Field("https://data.sec.gov/api/xbrl/companyfacts/")
     base_entity_submissions_url: str = Field("https://data.sec.gov/submissions/")
+    base_efts_url: str = Field("https://efts.sec.gov/LATEST/search-index")
 
     @property
     def user_agent_header(self) -> dict:
