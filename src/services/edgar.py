@@ -1,6 +1,7 @@
 from typing import List
 from config import sec_edgar_settings as ses
 from modeling.PublicEntity import PublicEntity
+from modeling.sec_edgar.efts.EFTS_Response import EFTS_Hit, EFTS_Response
 import requests
 import logging
 
@@ -52,3 +53,34 @@ def edgar_full_text_search(q: dict) -> requests.Response:
         raise Exception(
             f"Failed to retrieve full text search results - Status code { response.status }"
         )
+        
+
+def get_hits_from_query(q: dict) -> EFTS_Response:
+    logger = logging.getLogger(__name__)
+    response = edgar_full_text_search(q)
+    efts_result = EFTS_Response(**response.json())
+    return efts_result
+
+def get_hits_from_queries(queries: List[dict]) -> List[EFTS_Hit]:
+    logger = logging.getLogger(__name__)
+
+    hits: List[EFTS_Hit] = []
+    for q in queries:
+        efts_result = get_hits_from_query(q)
+        hits += efts_result.get_hits()
+    logger.info(f"Got {len(hits)} hits from {len(queries)} queries")
+    
+    ciks = set([hit.get_source_cik() for hit in hits])
+    display_names = set([hit.get_source_name() for hit in hits])
+    urls = set([hit.get_url() for hit in hits])
+    # file_descriptions = set([hit.get_file_description() for hit in hits])
+    file_types = [hit.get_file_type() for hit in hits]
+    logger.info(ciks)
+    logger.info(display_names)
+    logger.info(urls)
+    logger.info(file_types)
+    return hits
+    
+    
+    
+    

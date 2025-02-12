@@ -12,6 +12,7 @@ class EFTS_Hit_Source(BaseModel):
         ..., description="The display names of the company."
     )
     file_date: date = Field(..., description="The date the filing was filed.")
+    file_type: str = Field(..., description="The type of the filing.")
     form_type: str = Field(
         ..., alias="form", description="The form type of the filing."
     )
@@ -53,6 +54,9 @@ class EFTS_Hit(BaseModel):
             accession_number = accession_number.replace("-", "")
             return f"{base_url}/{cik}/{accession_number}/{file_name}"
         return None
+    
+    def get_file_type(self):
+        return self.source.file_type
 
 
 class EFTS_Hits_Dict(BaseModel):

@@ -1,6 +1,6 @@
 from services.update_db import DatabaseUpdater
 from services.daemon import setup_logging
-from services.edgar import edgar_full_text_search
+from services.edgar import edgar_full_text_search, get_hits_from_queries
 
 from database import (
     public_entity_collection,
@@ -22,19 +22,45 @@ filings_8k_repo = SEC_Filing_8K_Repository(filings_8k_collection)
 filings_8k = filings_8k_repo.get_filings_for_entity
 
 # Send efts request
-q = {
-    "q": '"bitcoin" -"bitcoin cash" -"bitcoin sv" -"bitcoin mining"',
+q_1 = {
+    "q": 'purchased NEAR(5) bitcoin -"bitcoin mining"',
     "forms": "8-K",
-    "dateRange": "30d",
+    "dateRange": "custom",
     "startdt": "2025-01-12",
     "enddt": "2025-02-11",
     "category": "custom",
 }
-response = edgar_full_text_search(q)
-url = response.url
-json = response.json()
-total_hits = json["hits"]["total"]
-aggregations = json["aggregations"]["entity_filter"]
+
+q_2 = {
+    "q": 'purchase NEAR(5) bitcoin -"bitcoin mining"',
+    "forms": "8-K",
+    "dateRange": "custom",
+    "startdt": "2025-01-12",
+    "enddt": "2025-02-11",
+    "category": "custom",
+}
+
+q_3 = {
+    "q": 'acquire NEAR(5) bitcoin -"bitcoin mining"',
+    "forms": "8-K",
+    "dateRange": "custom",
+    "startdt": "2025-01-12",
+    "enddt": "2025-02-11",
+    "category": "custom",
+}
+
+q_4 = {
+    "q": 'acquired NEAR(5) bitcoin -"bitcoin mining"',
+    "forms": "8-K",
+    "dateRange": "custom",
+    "startdt": "2025-01-12",
+    "enddt": "2025-02-11",
+    "category": "custom",
+}
+
+
+
+hits = get_hits_from_queries([q_1, q_2, q_3, q_4])
 
 # # DatabaseUpdater
 # dbu = DatabaseUpdater()
