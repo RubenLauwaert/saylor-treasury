@@ -71,16 +71,19 @@ async def main():
     # cik = "0001050446"  # CIK for MicroStrategy Incorporated (MSTR)
     # entity = await PublicEntity.from_cik(cik)
     
-    # Get bitcoin entity ciks
-    bitcoin_entity_ciks = await get_entity_ciks_from_queries_async([main_bitcoin_entity_query])
+    # # Get bitcoin entity ciks
+    # bitcoin_entity_ciks = await get_entity_ciks_from_queries_async([main_bitcoin_entity_query])
 
-    # Generate entities from ciks
-    bitcoin_entities = await PublicEntity.from_ciks(bitcoin_entity_ciks)
+    # # Generate entities from ciks
+    # bitcoin_entities = await PublicEntity.from_ciks(bitcoin_entity_ciks)
     
     # Add public entity to the database
     entity_repo = PublicEntityRepository(public_entity_collection)
-    entity_repo.add_entities(bitcoin_entities)
-    
+
+    # retrieve entity
+    entity = entity_repo.get_entity_by_ticker("SMLR")
+    updated_entity = await entity.update_bitcoin_filing_hits()
+    entity_repo.add_entity(updated_entity)
 
     
 

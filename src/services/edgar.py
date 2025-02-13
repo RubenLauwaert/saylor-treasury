@@ -1,6 +1,7 @@
 from typing import List, Set
 from config import sec_edgar_settings as ses
 from modeling.sec_edgar.efts.EFTS_Response import EFTS_Hit, EFTS_Response
+from modeling.sec_edgar.efts.query import *
 import requests
 import logging
 import time
@@ -166,6 +167,28 @@ async def get_entity_ciks_from_queries_async(queries: List[dict]) -> Set[str]:
     ciks = set([hit.get_source_cik() for hit in hits])
     logger.info(f"Got {len(ciks)} entities from {len(queries)} queries")
     return ciks
+
+
+async def get_query_result_async(q: dict) -> QueryResult:
+    # Get EFTS Hits
+    hits = await get_hits_from_queries_async([q])   
+    # Transform to QueryHits
+    query_hits = [QueryHit(url=hit.url,
+                           score=hit.score,
+                           accession_number=hit.source.adsh,
+                           file_type=hit.get_file_type(), 
+                           form_type=hit.get_form_type(), 
+                           file_date=hit.get_file_date(), 
+                           cik=hit.get_source_cik()) for hit in hits]
+    query_result = QueryResult(query=q, hits=query_hits)
+    return query_result
+
+async def get_query_results_async(queries: List[dict]) -> QueryResults:
+    query_results = []
+    for q in queries:
+        query_result = await get_query_result_async(q)
+        query_results.append(query_result)
+    return QueryResults(results=query_results)
     
     
     

@@ -10,11 +10,10 @@ class EFTS_Hit_Source(BaseModel):
     display_names: List[str] = Field(
         ..., description="The display names of the company."
     )
-    file_date: date = Field(..., description="The date the filing was filed.")
+    file_date: str = Field(..., description="The date the filing was filed.")
     file_type: str = Field(..., description="The type of the filing.")
-    form_type: str = Field(
-        ..., alias="form", description="The form type of the filing."
-    )
+    adsh: str = Field(..., description="The accession number.")
+    form: str = Field(..., description="The form type of the filing.")
 
     def get_name(self):
         return self.display_names[0]
@@ -31,6 +30,10 @@ class EFTS_Hit(BaseModel):
         ..., alias="_source", description="The source of the hit."
     )
     url: Optional[str] = Field(None, description="The URL of the SEC filing hit.")
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.url = self.get_url()
 
     def get_source_name(self):
         return self.source.get_name()
@@ -42,7 +45,7 @@ class EFTS_Hit(BaseModel):
         return self.source.file_date
 
     def get_form_type(self):
-        return self.source.form_type
+        return self.source.form
 
     def get_url(self):
         base_url = "https://www.sec.gov/Archives/edgar/data"
