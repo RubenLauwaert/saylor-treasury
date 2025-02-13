@@ -5,6 +5,10 @@ __pycache__/
 # Data folder
 data/
 
+# Include the edgar_examples folder and its contents
+!data/edgar_examples/
+!data/edgar_examples/**
+
 # C extensions
 *.so
 
