@@ -28,6 +28,7 @@ class Base_Bitcoin_Query(Base_EFTS_Query):
     q: str = Field("bitcoin", description="The query string.")
     startdt: str = Field(default=date(2009, 1, 3).isoformat(), description="The start date for the query.")
     enddt: str = Field(default=date.today().isoformat(), description="The end date for the query.")
+    forms: List[str] = Field(["8-K","10-Q","10-K"], description="The forms to search for.")
     
     
 class QueryHit(BaseModel):

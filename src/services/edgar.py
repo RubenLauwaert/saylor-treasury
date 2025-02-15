@@ -175,7 +175,7 @@ async def get_query_result_async(q: dict) -> QueryResult:
     # Transform to QueryHits
     query_hits = [QueryHit(url=hit.url,
                            score=hit.score,
-                           accession_number=hit.source.adsh,
+                           accession_number=hit.source.adsh.replace("-", ""),
                            file_type=hit.get_file_type(), 
                            form_type=hit.get_form_type(), 
                            file_date=hit.get_file_date(), 

@@ -7,6 +7,7 @@ from modeling.sec_edgar.submissions.SubmissionsResponse import SubmissionsRespon
 import logging
 
 from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
+from modeling.filing.SEC_Filing import SEC_Filing
 
 
 class PublicEntity(BaseModel):
@@ -31,6 +32,8 @@ class PublicEntity(BaseModel):
     bitcoin_filing_hits: List[QueryHit] = Field(default=[], description="The list of EFTS hits, containing the word bitcoin for this entity,")
     filing_metadatas: List[SEC_Filing_Metadata] = Field(default=[], description="The list of submissions for this entity.")
     
+    
+    # Initializers
 
     @classmethod
     async def from_cik(cls, cik: str) -> "PublicEntity":
@@ -92,15 +95,37 @@ class PublicEntity(BaseModel):
         return entities
     
     
+    # Getters
+    
+    def get_filing_metadatas(self) -> List[SEC_Filing_Metadata]:
+        return self.filing_metadatas
+    
+    
+    def _get_filing_metadata(self, accession_number: str) -> Optional[SEC_Filing_Metadata]:
+        for filing_metadata in self.filing_metadatas:
+            if filing_metadata.accession_number == accession_number:
+                return filing_metadata
+        return None
+    
+    # Updaters
+    
+    
     async def update_bitcoin_filing_hits(self) -> "PublicEntity":
         from modeling.sec_edgar.efts.query import Base_Bitcoin_Query
         from services.edgar import get_query_result_async
 
         
+        # Retrieve QueryResult (QueryHits) for bitcoin query (keyword "bitcoin")
         base_bitcoin_query = Base_Bitcoin_Query(ciks=self.cik).model_dump(exclude_none=True)
+        base
         logging.info(base_bitcoin_query)
         query_result = await get_query_result_async(q=base_bitcoin_query)
         bitcoin_filing_hits = query_result.hits
         self.bitcoin_filing_hits = bitcoin_filing_hits
-        
+        # Convert to filing metadatas
+        bitcoin_filing_metadatas = [self._get_filing_metadata(hit.accession_number) for hit in bitcoin_filing_hits if self._get_filing_metadata(hit.accession_number) is not None]
+        logging.info(f"Retrieved {len(bitcoin_filing_metadatas)} filings for {self.name}")
+        # Load html content for metadatas
+        filings = await SEC_Filing.from_metadatas_async(bitcoin_filing_metadatas)
+        logging.info(f"First filing: {filings[0]}")
         return self
