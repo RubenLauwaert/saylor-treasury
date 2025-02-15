@@ -27,35 +27,33 @@ setup_logging()
 # Send efts request
 
 main_bitcoin_entity_query = {
-    "q": 'bitcoin',
+    "q": "bitcoin",
     "forms": "8-K",
     "dateRange": "custom",
     "startdt": "2020-08-10",
-    "enddt": date.today().strftime("%Y-%m-%d"), 
+    "enddt": date.today().strftime("%Y-%m-%d"),
     "category": "custom",
 }
 
 main_bitcoin_entity_query_2 = {
-    "q": 'acquire NEAR(5) bitcoin',
+    "q": "acquire NEAR(5) bitcoin",
     "forms": "8-K",
     "dateRange": "custom",
     "startdt": "2020-08-10",
-    "enddt": date.today().strftime("%Y-%m-%d"), 
+    "enddt": date.today().strftime("%Y-%m-%d"),
     "category": "custom",
 }
 
 main_bitcoin_entity_query_3 = {
-    "q": 'add NEAR(5) bitcoin',
+    "q": "add NEAR(5) bitcoin",
     "forms": "8-K",
     "dateRange": "custom",
     "startdt": "2020-08-10",
-    "enddt": date.today().strftime("%Y-%m-%d"), 
+    "enddt": date.today().strftime("%Y-%m-%d"),
     "category": "custom",
 }
 
 # Send efts request
-
-
 
 
 # hits = get_hits_from_queries([main_bitcoin_entity_query])
@@ -70,13 +68,13 @@ main_bitcoin_entity_query_3 = {
 async def main():
     # cik = "0001050446"  # CIK for MicroStrategy Incorporated (MSTR)
     # entity = await PublicEntity.from_cik(cik)
-    
+
     # # Get bitcoin entity ciks
     # bitcoin_entity_ciks = await get_entity_ciks_from_queries_async([main_bitcoin_entity_query])
 
     # # Generate entities from ciks
     # bitcoin_entities = await PublicEntity.from_ciks(bitcoin_entity_ciks)
-    
+
     # Add public entity to the database
     entity_repo = PublicEntityRepository(public_entity_collection)
 
@@ -84,8 +82,6 @@ async def main():
     entity = entity_repo.get_entity_by_ticker("SMLR")
     updated_entity = await entity.update_bitcoin_filing_hits()
     entity_repo.add_entity(updated_entity)
-
-    
 
 
 asyncio.run(main())
