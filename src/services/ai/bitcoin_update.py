@@ -18,11 +18,7 @@ class CustomDate(BaseModel):
 
 class BitcoinTotalHoldings(BaseModel):
 
-    date: CustomDate = Field(
-        description="The date of the bitcoin treasury holdings reporting."
-    )
-
-    total_bitcoin_holdings: float = Field(
+    total_bitcoin_held: float = Field(
         description="The total amount of bitcoin in the companies treasury"
     )
 
@@ -37,10 +33,10 @@ class BitcoinTotalHoldingsResult(BaseModel):
         description="The confidence score of the extraction."
     )
 
-    contains_bitcoin_treasury_update: bool = Field(
-        description="Whether the filing contains information about a bitcoin treasury update"
+    contains_bitcoin_treasury_holdings_report: bool = Field(
+        description="Whether the filing contains a report on the total bitcoins held by the company"
     )
-    bitcoin_treasury_update: Optional[BitcoinTotalHoldings] = Field(
+    bitcoin_treasury_holdings: Optional[BitcoinTotalHoldings] = Field(
         description="The bitcoin treasury update event, if applicable."
     )
 

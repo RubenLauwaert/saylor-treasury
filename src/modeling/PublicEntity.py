@@ -178,13 +178,7 @@ class PublicEntity(BaseModel):
         bitcoin_treasury_updates = (
             await bitcoin_update_extractor.extract_bitcoin_treasury_updates(filings)
         )
-        logging.info(
-            [
-                update
-                for update in bitcoin_treasury_updates
-                if update.contains_bitcoin_treasury_update == True
-            ]
-        )
+        logging.info(bitcoin_treasury_updates)
         # Convert to filing metadatas
         # bitcoin_filing_metadatas = [
         #     self._get_filing_metadata(hit.accession_number)
