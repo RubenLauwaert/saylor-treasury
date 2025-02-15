@@ -10,6 +10,8 @@ from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
 from modeling.filing.SEC_Filing import SEC_Filing
 from modeling.filing.SEC_Form_Types import SEC_Form_Types
 
+from services.ai.bitcoin_update import *
+
 
 class PublicEntity(BaseModel):
     # Necessary fields
@@ -161,16 +163,38 @@ class PublicEntity(BaseModel):
             if hit.form_type in self.accepted_bitcoin_filing_types
         ]
         self.bitcoin_filing_hits = filtered_bitcoin_filing_hits
-        # Convert to filing metadatas
-        bitcoin_filing_metadatas = [
-            self._get_filing_metadata(hit.accession_number)
-            for hit in filtered_bitcoin_filing_hits
-            if self._get_filing_metadata(hit.accession_number) is not None
+
+        # Extract events for first filing
+        filings_ex99 = [
+            hit for hit in filtered_bitcoin_filing_hits if hit.file_type == "EX-99.1"
         ]
-        logging.info(
-            f"Retrieved {len(bitcoin_filing_metadatas)} filings for {self.name}"
+        bitcoin_update_extractor = BitcoinTreasuryUpdateExtractor()
+        metadatas = [
+            self._get_filing_metadata(hit.accession_number) for hit in filings_ex99
+        ]
+        # metadata.document_url = filings_ex99[0].url
+        filings = await SEC_Filing.from_metadatas_async(metadatas)
+        logging.info(f"Extracting events for {filings_ex99[0].url}")
+        bitcoin_treasury_updates = (
+            await bitcoin_update_extractor.extract_bitcoin_treasury_updates(filings)
         )
-        # Load html content for metadatas
-        filings = await SEC_Filing.from_metadatas_async(bitcoin_filing_metadatas)
-        logging.info(f"First filing: {filings[0]}")
+        logging.info(
+            [
+                update
+                for update in bitcoin_treasury_updates
+                if update.contains_bitcoin_treasury_update == True
+            ]
+        )
+        # Convert to filing metadatas
+        # bitcoin_filing_metadatas = [
+        #     self._get_filing_metadata(hit.accession_number)
+        #     for hit in filtered_bitcoin_filing_hits
+        #     if self._get_filing_metadata(hit.accession_number) is not None
+        # ]
+        # logging.info(
+        #     f"Retrieved {len(bitcoin_filing_metadatas)} filings for {self.name}"
+        # )
+        # # Load html content for metadatas
+        # filings = await SEC_Filing.from_metadatas_async(bitcoin_filing_metadatas)
+        # logging.info(f"First filing: {filings[0]}")
         return self
