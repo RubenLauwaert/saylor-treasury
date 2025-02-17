@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from pydantic import BaseModel, Field
 from enum import Enum
 from typing import Optional, List, Set
@@ -11,6 +12,7 @@ from modeling.filing.SEC_Filing import SEC_Filing
 from modeling.filing.SEC_Form_Types import SEC_Form_Types
 
 from services.ai.bitcoin_update import *
+from services.ai.chain_of_thought import *
 
 
 class PublicEntity(BaseModel):
@@ -166,19 +168,33 @@ class PublicEntity(BaseModel):
 
         # Extract events for first filing
         filings_ex99 = [
-            hit for hit in filtered_bitcoin_filing_hits if hit.file_type == "EX-99.1"
+            hit
+            for hit in filtered_bitcoin_filing_hits
+            if (hit.form_type == "8-K" and hit.file_type == "EX-99.1")
         ]
         bitcoin_update_extractor = BitcoinTreasuryUpdateExtractor()
-        metadatas = [
-            self._get_filing_metadata(hit.accession_number) for hit in filings_ex99
-        ]
+        metadatas = sorted(
+            [self._get_filing_metadata(hit.accession_number) for hit in filings_ex99],
+            key=lambda metadata: (
+                datetime.strptime(metadata.filing_date, "%Y-%m-%d")
+                if metadata and metadata.filing_date
+                else datetime.min
+            ),
+        )
+
+        logging.info(metadatas)
+
+        for i, metadata in enumerate(metadatas):
+            metadata.document_url = filings_ex99[i].url
+
         # metadata.document_url = filings_ex99[0].url
         filings = await SEC_Filing.from_metadatas_async(metadatas)
-        logging.info(f"Extracting events for {filings_ex99[0].url}")
-        bitcoin_treasury_updates = (
-            await bitcoin_update_extractor.extract_bitcoin_treasury_updates(filings)
+        logging.info(f"Extracting events for {filings[6].filing_metadata.document_url}")
+        chain_of_thought_extractor = ChainOfThoughtExtractor()
+        chain_of_thoughts = await chain_of_thought_extractor.extract_chain_of_thoughts(
+            filings[6]
         )
-        logging.info(bitcoin_treasury_updates)
+        logging.info(f"Chain of thoughts: {chain_of_thoughts}")
         # Convert to filing metadatas
         # bitcoin_filing_metadatas = [
         #     self._get_filing_metadata(hit.accession_number)

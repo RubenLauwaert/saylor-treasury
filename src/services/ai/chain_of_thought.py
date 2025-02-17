@@ -1,51 +1,54 @@
 # FILE: src/events.py
 
-import asyncio
 import logging
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from logging import Logger
 from openai import AsyncOpenAI
 from config import openai_settings
+from modeling.bitcoin_purchase.BitcoinPurchase import BitcoinPurchase
 from modeling.filing.SEC_Filing import SEC_Filing
 
 
-class CustomDate(BaseModel):
-    Year: int
-    Month: int
-    Day: int
+class Step(BaseModel):
+    explanation: str = Field(..., description="The explanation of the step.")
+    output: str = Field(..., description="The output of the step.")
 
 
-class BitcoinTotalHoldings(BaseModel):
-
+class FinalTotalBitcoinHoldings(BaseModel):
     total_bitcoin_held: float = Field(
-        description="The total amount of bitcoin in the companies treasury"
+        ..., description="The total amount of bitcoin in the companies treasury"
     )
-
     total_net_proceeds_dollars: float = Field(
-        description="The total net proceeds in dollars of the bitcoin in the companies treasury"
+        ...,
+        description="The total net proceeds in dollars of the bitcoin in the companies treasury",
+    )
+    avg_price_per_bitcoin: float = Field(
+        description="The average purchase price per bitcoin for the total bitcoin held by the company."
     )
 
 
-class BitcoinTotalHoldingsResult(BaseModel):
+class ChainOfThoughtResponse(BaseModel):
+    steps: List[Step] = Field(
+        ..., description="The list of steps in the chain of thought."
+    )
+    final_answer: FinalTotalBitcoinHoldings = Field(
+        ..., description="The final answer in the chain of thought."
+    )
 
     confidence_score: float = Field(
         description="The confidence score of the extraction."
     )
 
-    contains_bitcoin_treasury_holdings_report: bool = Field(
-        description="Whether the filing contains a report on the total bitcoins held by the company"
-    )
-    bitcoin_treasury_holdings: Optional[BitcoinTotalHoldings] = Field(
-        description="The total bitcoin holdings in the companies treasury"
-    )
 
-
-class BitcoinTreasuryUpdateExtractor:
+class ChainOfThoughtExtractor:
 
     client: AsyncOpenAI
     structured_output_model: str
     logger: Logger
+
+    system_prompt = "You are an AI assistant that is used to reason about the total bitcoins held by a company"
+    user_prompt = "Can you extract your reasoning behind how you get to the total bitcoin holdings of a company, given the following SEC filing, sometimes the total bitcoin holdings are contained in a table : \n\n"
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -63,36 +66,30 @@ class BitcoinTreasuryUpdateExtractor:
         except Exception as e:
             self.logger.error(f"Error initializing OpenAI API: {e}")
 
-    async def extract_bitcoin_treasury_update(
+    async def extract_chain_of_thoughts(
         self, filing: SEC_Filing
-    ) -> Optional[BitcoinTotalHoldingsResult]:
+    ) -> Optional[ChainOfThoughtResponse]:
         try:
             chat_completion = await self.client.beta.chat.completions.parse(
                 model=self.structured_output_model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an AI financial analyst that is used to extract the new total Bitcoin holdings in the companies treasury",
+                        "content": self.system_prompt,
                     },
                     {
                         "role": "user",
-                        "content": "Can you extract the total bitcoin holdings of the company and the total net proceeds in dollars from the following filing html content : \n\n"
-                        + filing.content_html_str,
+                        "content": self.user_prompt + filing.content_html_str,
                     },
                 ],
-                response_format=BitcoinTotalHoldingsResult,
+                response_format=ChainOfThoughtResponse,
             )
 
             # Extract the structured output from the response
             result = chat_completion.choices[0].message.parsed
+            self.logger.info(f"Structured output: {result}")
 
             return result
 
         except Exception as e:
             self.logger.error(f"Error extracting events: {e}")
-
-    async def extract_bitcoin_treasury_updates(
-        self, filings: List[SEC_Filing]
-    ) -> List[Optional[BitcoinTotalHoldingsResult]]:
-        tasks = [self.extract_bitcoin_treasury_update(filing) for filing in filings]
-        return await asyncio.gather(*tasks)

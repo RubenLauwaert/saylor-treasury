@@ -79,7 +79,8 @@ async def main():
     entity_repo = PublicEntityRepository(public_entity_collection)
 
     # retrieve entity
-    entity = entity_repo.get_entity_by_ticker("SMLR")
+
+    entity = entity_repo.get_entity_by_ticker("MSTR")
     updated_entity = await entity.update_bitcoin_filing_hits()
     entity_repo.add_entity(updated_entity)
 
