@@ -14,6 +14,7 @@ from modeling.filing.SEC_Form_Types import SEC_Form_Types
 from services.ai.bitcoin_update import *
 from services.ai.chain_of_thought import *
 from services.ai.bitcoin_events import *
+from modeling.filing.Bitcoin_Filing import Bitcoin_Filing
 
 
 class PublicEntity(BaseModel):
@@ -148,7 +149,7 @@ class PublicEntity(BaseModel):
 
     # Updaters
 
-    async def update_bitcoin_filing_hits(self) -> "PublicEntity":
+    async def update_bitcoin_filings(self) -> "PublicEntity":
         from modeling.sec_edgar.efts.query import Base_Bitcoin_Query
         from services.edgar import get_query_result_async
 
@@ -167,7 +168,9 @@ class PublicEntity(BaseModel):
         ]
         self.bitcoin_filing_hits = filtered_bitcoin_filing_hits
 
+        bitcoin_filing = await Bitcoin_Filing.from_query_hit(
+            hit=filtered_bitcoin_filing_hits[2]
+        )
+
+        logging.info(bitcoin_filing.extracted_btc_events)
         return self
-    
-    
-    async def 

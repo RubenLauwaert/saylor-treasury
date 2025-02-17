@@ -12,12 +12,11 @@ from modeling.filing.SEC_Filing import SEC_Filing
 
 class BitcoinEvent(BaseModel):
     event_type: Literal[
-        "Bitcoin Treasury Update",
-        "Total Bitcoin Holdings Statement",
-        "Other",
+        "Bitcoin Acquisition", "Bitcoin Sale", "Total Bitcoin Holdings Statement"
     ] = Field(..., description="The type of event.")
     event_description: str = Field(
-        ..., description="A detailed description of the event."
+        ...,
+        description="A detailed description of the event. This description should be concise and informative.",
     )
     event_keywords: List[str] = Field(
         description="Keywords related to the event. Avoid keywords with numerical values."
@@ -47,8 +46,10 @@ class EventsExtractor:
     structured_output_model: str
     logger: Logger
 
-    system_prompt = "You are an AI assistant that is used to extract relevant bitcoin events from the the content of an SEC Filing"
-    user_prompt = "Can you extract the relevant bitcoin events from the following SEC filing html content : \n\n"
+    system_prompt = "You are an AI assistant that is used to extract relevant bitcoin events from the content of an SEC Filing. \
+                    This includes events such as Bitcoin Treasury Updates, Total Bitcoin Holdings Statements, \
+                    At The Market (ATM), Convertible bond, Preferred Stock issuances and other relevant events"
+    user_prompt = "Can you extract all events, relevant for understanding their bitcoin strategy, from the following SEC filing html content : \n\n"
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -67,7 +68,7 @@ class EventsExtractor:
             self.logger.error(f"Error initializing OpenAI API: {e}")
 
     async def extract_events(
-        self, filing: SEC_Filing
+        self, html_filing: str
     ) -> Optional[BitcoinFilingEventsResult]:
         try:
             chat_completion = await self.client.beta.chat.completions.parse(
@@ -79,7 +80,7 @@ class EventsExtractor:
                     },
                     {
                         "role": "user",
-                        "content": self.user_prompt + filing.content_html_str[0:100000],
+                        "content": self.user_prompt + html_filing[0:100000],
                     },
                 ],
                 response_format=BitcoinFilingEventsResult,

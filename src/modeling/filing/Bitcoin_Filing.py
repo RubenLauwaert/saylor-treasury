@@ -33,41 +33,46 @@ class Bitcoin_Filing(BaseModel):
     url: str
     accession_number: str
     file_type: str
-    root_form_type: str
+    form_type: str
     file_date: str
+    # Optional data
+    raw_content_html: Optional[str]
+    extracted_btc_events: Optional[BitcoinFilingEventsResult]
 
     # Bools
     contains_raw_content: bool = Field(default=False)
-    contains_parsed_content: bool = Field(default=False)
-    contains_btc_events: bool = Field(default=False)
-    has_btc_update: bool = Field(default=False)
-    has_total_btc_holdings: bool = Field(default=False)
-    # Optional Data
-    raw_content_html: Optional[str]
-    parsed_content: Optional[str]
-    extracted_btc_events: Optional[BitcoinFilingEventsResult]
-    btc_treasury_update: Optional[BitcoinTreasuryUpdate]
-    btc_total_holdings: Optional[TotalBitcoinHoldings]
+    has_extracted_events: bool = Field(default=False)
 
     @classmethod
-    async def from_query_hit(
-        cls, query_hit: QueryHit, sec_filing: SEC_Filing
-    ) -> "Bitcoin_Filing":
+    async def from_query_hit(cls, hit: QueryHit) -> "Bitcoin_Filing":
         logger = logging.getLogger(cls.__name__)
+        # Optional fields
+        raw_content_html = None
+        extracted_btc_events = None
+        # Bools
+        contains_raw_content = False
+        has_extracted_events = False
 
-        contains_raw_content = sec_filing.has_content
-        raw_content_html = sec_filing.content_html_str
-        contains_bitcoin_events = False
-        bitcoin_events = None
-
-        # Extract bitcoin events
         try:
-            events_extractor = EventsExtractor()
-            bitcoin_events = await events_extractor.extract_events_from_filing(
-                sec_filing
+            raw_content_html = await SEC_Filing.get_raw_content_html(hit.url)
+            contains_raw_content = True
+            # Extract events
+            extracted_btc_events = await EventsExtractor().extract_events(
+                raw_content_html
             )
-
-            contains_bitcoin_events = len(bitcoin_events.events) > 0
+            has_extracted_events = True
 
         except Exception as e:
-            logger.error(f"Error extracting bitcoin events: {e}")
+            logger.error(f"Error extracting bitcoin events from filing: {e}")
+
+        return cls(
+            url=hit.url,
+            accession_number=hit.accession_number,
+            file_type=hit.file_type,
+            form_type=hit.form_type,
+            file_date=hit.file_date,
+            raw_content_html=raw_content_html,
+            extracted_btc_events=extracted_btc_events,
+            contains_raw_content=contains_raw_content,
+            has_extracted_events=has_extracted_events,
+        )

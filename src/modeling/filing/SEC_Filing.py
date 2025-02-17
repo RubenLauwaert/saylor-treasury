@@ -77,6 +77,26 @@ class SEC_Filing(BaseModel):
 
         return results
 
+    @staticmethod
+    async def get_raw_content_html(document_url: str) -> str:
+        logger = logging.getLogger("SEC_Filing")
+        content_html_str = None
+        try:
+
+            async with aiohttp.ClientSession(headers=ses.user_agent_header) as session:
+                async with session.get(document_url) as response:
+                    if response.status == 200:
+                        content_html_str = await response.text()
+                        logger.info(f"Retrieved html content for : {document_url}")
+                    else:
+                        logger.info(
+                            f"Failed to retrieve content from {document_url}, status code: {response.status} error: {response.reason}"
+                        )
+        except Exception as e:
+            logger.info(f"Error retrieving content from {document_url}: {e}")
+
+        return content_html_str
+
     def __str__(self):
         document_url = self.filing_metadata.document_url
         primary_document = self.filing_metadata.primary_document
