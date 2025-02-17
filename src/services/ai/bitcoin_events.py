@@ -1,5 +1,6 @@
 # FILE: src/events.py
 
+from enum import Enum
 import logging
 from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
@@ -10,13 +11,34 @@ from modeling.bitcoin_purchase.BitcoinPurchase import BitcoinPurchase
 from modeling.filing.SEC_Filing import SEC_Filing
 
 
+class BitcoinEventType(str, Enum):
+    # Bitcoin Transactions
+    DEFINITIVE_BITCOIN_ACQUISITION = "Definitive Bitcoin Acquisition"
+    DEFINITIVE_BITCOIN_SALE = "Definitive Bitcoin Sale"
+
+    # Bitcoin Holdings Disclosures
+    DEFINITIVE_DISCLOSURE_OF_TOTAL_AMOUNT_OF_BITCOIN = "A definitive disclosure of the total amount of Bitcoin held by the entity"
+
+    # Financial Instruments Used to Acquire Bitcoin
+    ATM_STOCK_ISSUANCE_FOR_BITCOIN = "At The Market (ATM) Stock Issuance to purchase Bitcoin"
+    CONVERTIBLE_BOND_ISSUANCE_FOR_BITCOIN = "Convertible Bond Issuance to purchase Bitcoin"
+    PREFERRED_STOCK_ISSUANCE_FOR_BITCOIN = "Preferred Stock Issuance to purchase Bitcoin"
+    CASH_FOR_BITCOIN = "Cash used to purchase Bitcoin"
+    
+    # Bitcoin metrics
+    BITCOIN_YIELD = "An event about the Bitcoin Yield KPI of the entity"
+    
+    #Other
+    BITCOIN_ANNOUNCEMENT = "An announcement about Bitcoin. This could be an announcement of a new Bitcoin strategy, etc..."
+
 class BitcoinEvent(BaseModel):
-    event_type: Literal[
-        "Bitcoin Acquisition", "Bitcoin Sale", "Total Bitcoin Holdings Statement"
-    ] = Field(..., description="The type of event.")
+    event_type: BitcoinEventType = Field(
+        ...,
+        description="The type of the event."),
     event_description: str = Field(
         ...,
-        description="A detailed description of the event. This description should be concise and informative.",
+        description="A detailed description of the event. This description should be concise and informative, \
+            meaning: When dates are given , report the exact date. When amounts are given, report the exact amount. "
     )
     event_keywords: List[str] = Field(
         description="Keywords related to the event. Avoid keywords with numerical values."
@@ -32,13 +54,6 @@ class BitcoinFilingEventsResult(BaseModel):
         ...,
         description="The list of extracted filing events. This can be an exhaustive list of all events related to bitcoin in the filing.",
     )
-    contains_bitcoin_purchase: bool = Field(
-        description="Whether the filing contains information about a bitcoin purchase"
-    )
-    bitcoin_purchase: Optional[BitcoinPurchase] = Field(
-        description="The bitcoin purchase event, if applicable."
-    )
-
 
 class EventsExtractor:
 
@@ -88,8 +103,6 @@ class EventsExtractor:
 
             # Extract the structured output from the response
             result = chat_completion.choices[0].message.parsed
-            self.logger.info(f"Structured output: {result}")
-
             return result
 
         except Exception as e:

@@ -46,15 +46,14 @@ class PublicEntity(BaseModel):
     # List of EFTS query results for this entity
     accepted_bitcoin_filing_types: List[SEC_Form_Types] = Field(
         default=[
-            SEC_Form_Types.FORM_8K,
-            SEC_Form_Types.FORM_10Q,
-            SEC_Form_Types.FORM_10K,
+            SEC_Form_Types.FORM_8K
+
         ],
         description="The list of accepted filing types for bitcoin filings.",
     )
-    bitcoin_filing_hits: List[QueryHit] = Field(
+    bitcoin_filings: List[Bitcoin_Filing] = Field(
         default=[],
-        description="The list of EFTS hits, containing the word bitcoin for this entity,",
+        description="The list of Bitcoin filings, containing the word bitcoin for this entity,",
     )
     filing_metadatas: List[SEC_Filing_Metadata] = Field(
         default=[], description="The list of submissions for this entity."
@@ -114,7 +113,6 @@ class PublicEntity(BaseModel):
 
     @classmethod
     async def from_ciks(cls, ciks: Set[str]) -> List["PublicEntity"]:
-
         logger = logging.getLogger(cls.__name__)
         entities = []
 
@@ -149,15 +147,18 @@ class PublicEntity(BaseModel):
 
     # Updaters
 
-    async def update_bitcoin_filings(self) -> "PublicEntity":
+    async def load_new_bitcoin_filings(self) -> "PublicEntity":
+        
         from modeling.sec_edgar.efts.query import Base_Bitcoin_Query
         from services.edgar import get_query_result_async
+        
+        # Logger
+        logger = logging.getLogger(self.__class__.__name__)
 
         # Retrieve QueryResult (QueryHits) for bitcoin query (keyword "bitcoin")
         base_bitcoin_query = Base_Bitcoin_Query(ciks=self.cik).model_dump(
             exclude_none=True
         )
-        logging.info(base_bitcoin_query)
         query_result = await get_query_result_async(q=base_bitcoin_query)
         bitcoin_filing_hits = query_result.hits
         # Only store hits with form type 8-K, 10-Q or 10-K
@@ -166,11 +167,26 @@ class PublicEntity(BaseModel):
             for hit in bitcoin_filing_hits
             if hit.form_type in self.accepted_bitcoin_filing_types
         ]
-        self.bitcoin_filing_hits = filtered_bitcoin_filing_hits
-
-        bitcoin_filing = await Bitcoin_Filing.from_query_hit(
-            hit=filtered_bitcoin_filing_hits[2]
+        
+        # Convert QueryHits to Bitcoin_Filings
+        all_bitcoin_filings = [ Bitcoin_Filing.from_query_hit(hit) for hit in filtered_bitcoin_filing_hits]
+        
+        # Filter out filings that are already stored
+        new_bitcoin_filings = [
+            filing
+            for filing in all_bitcoin_filings
+            if filing.url
+            not in [bf.url for bf in self.bitcoin_filings]
+        ]
+        
+        
+        # Extract the bitcoin events for the new bitcoin filings (adhere to rate limit)
+        new_bitcoin_filings = await Bitcoin_Filing.extract_bitcoin_events_for(new_bitcoin_filings)
+          
+        # Add the new bitcoin filings to the entity
+        self.bitcoin_filings.extend(new_bitcoin_filings)
+        logger.info(
+            f"Added {len(new_bitcoin_filings)} new Bitcoin filings to entity {self.name}"
         )
-
-        logging.info(bitcoin_filing.extracted_btc_events)
+        
         return self

@@ -1,3 +1,4 @@
+import asyncio
 from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 
@@ -36,43 +37,56 @@ class Bitcoin_Filing(BaseModel):
     form_type: str
     file_date: str
     # Optional data
-    raw_content_html: Optional[str]
-    extracted_btc_events: Optional[BitcoinFilingEventsResult]
-
+    extracted_btc_events: List[BitcoinEvent] = Field(default=[])
     # Bools
-    contains_raw_content: bool = Field(default=False)
     has_extracted_events: bool = Field(default=False)
 
     @classmethod
-    async def from_query_hit(cls, hit: QueryHit) -> "Bitcoin_Filing":
+    def from_query_hit(cls, hit: QueryHit) -> "Bitcoin_Filing":
         logger = logging.getLogger(cls.__name__)
         # Optional fields
-        raw_content_html = None
-        extracted_btc_events = None
-        # Bools
-        contains_raw_content = False
-        has_extracted_events = False
-
-        try:
-            raw_content_html = await SEC_Filing.get_raw_content_html(hit.url)
-            contains_raw_content = True
-            # Extract events
-            extracted_btc_events = await EventsExtractor().extract_events(
-                raw_content_html
-            )
-            has_extracted_events = True
-
-        except Exception as e:
-            logger.error(f"Error extracting bitcoin events from filing: {e}")
-
         return cls(
             url=hit.url,
             accession_number=hit.accession_number,
             file_type=hit.file_type,
             form_type=hit.form_type,
             file_date=hit.file_date,
-            raw_content_html=raw_content_html,
-            extracted_btc_events=extracted_btc_events,
-            contains_raw_content=contains_raw_content,
-            has_extracted_events=has_extracted_events,
         )
+        
+    @staticmethod
+    async def extract_bitcoin_events_for(bitcoin_filings: List["Bitcoin_Filing"]) -> List["Bitcoin_Filing"]:
+        batch_size = 10  # Number of requests per batch
+        delay = 1  # Delay in seconds between batches
+        event_extractor = EventsExtractor()
+        for i in range(0, len(bitcoin_filings), batch_size):
+            batch = bitcoin_filings[i:i + batch_size]
+            await asyncio.gather(*(filing.extract_bitcoin_events(event_extractor) for filing in batch))
+            if i + batch_size < len(bitcoin_filings):
+                await asyncio.sleep(delay)  # Wait for 1 second between batches
+
+        return bitcoin_filings
+        
+    async def get_html_content(self) -> str:
+        logger = logging.getLogger(self.__class__.__name__)
+        html_content = None
+        try:
+            html_content = await SEC_Filing.get_raw_content_html(self.url)
+        except Exception as e:
+            logger.error(f"Failed to load html content for filing {self.url}: {e}")
+        return html_content
+    
+    async def extract_bitcoin_events(self, extractor: EventsExtractor) -> "Bitcoin_Filing":
+        logger = logging.getLogger(self.__class__.__name__)
+        try:
+                raw_content_html = await self.get_html_content()
+                extracted_events = await extractor.extract_events(raw_content_html)
+                self.extracted_btc_events = extracted_events.events
+                self.has_extracted_events = True
+                logger.info(f"Extracted bitcoin events from filing {self.url}")
+        except Exception as e:
+            logger.error(f"Failed to extract bitcoin events from filing {self.url}: {e}")
+        return self
+    
+    
+        
+    
