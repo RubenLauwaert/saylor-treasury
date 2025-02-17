@@ -19,9 +19,9 @@ class FinalTotalBitcoinHoldings(BaseModel):
     total_bitcoin_held: float = Field(
         ..., description="The total amount of bitcoin in the companies treasury"
     )
-    total_net_proceeds_dollars: float = Field(
+    total_cost_basis_in_dollars: float = Field(
         ...,
-        description="The total net proceeds in dollars of the bitcoin in the companies treasury",
+        description="The cost basis in dollars of all the bitcoins bought by the company",
     )
     avg_price_per_bitcoin: float = Field(
         description="The average purchase price per bitcoin for the total bitcoin held by the company."
@@ -34,6 +34,14 @@ class ChainOfThoughtResponse(BaseModel):
     )
     final_answer: FinalTotalBitcoinHoldings = Field(
         ..., description="The final answer in the chain of thought."
+    )
+
+    disclosure_date: str = Field(
+        description="The date that corresponds with the disclosure of the total bitcoin holdings."
+    )
+
+    does_provide_total_bitcoin_holdings: bool = Field(
+        description="Whether the filing provides the total bitcoin holdings."
     )
 
     confidence_score: float = Field(

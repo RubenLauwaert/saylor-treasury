@@ -80,7 +80,7 @@ async def main():
 
     # retrieve entity
 
-    entity = entity_repo.get_entity_by_ticker("MSTR")
+    entity = entity_repo.get_entity_by_ticker("MARA")
     updated_entity = await entity.update_bitcoin_filing_hits()
     entity_repo.add_entity(updated_entity)
 

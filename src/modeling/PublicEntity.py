@@ -189,10 +189,10 @@ class PublicEntity(BaseModel):
 
         # metadata.document_url = filings_ex99[0].url
         filings = await SEC_Filing.from_metadatas_async(metadatas)
-        logging.info(f"Extracting events for {filings[6].filing_metadata.document_url}")
+        logging.info(f"Extracting events for {filings[5].filing_metadata.document_url}")
         chain_of_thought_extractor = ChainOfThoughtExtractor()
         chain_of_thoughts = await chain_of_thought_extractor.extract_chain_of_thoughts(
-            filings[6]
+            filings[5]
         )
         logging.info(f"Chain of thoughts: {chain_of_thoughts}")
         # Convert to filing metadatas
