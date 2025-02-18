@@ -69,6 +69,10 @@ class OpenAI_Settings(BaseSettings):
     api_key: str = Field(alias="openai_api_key")
     summarization_model: str = Field(alias="openai_summarization_model")
     structured_output_model: str = Field(alias="openai_structured_output_model")
+    tokens_per_minute: int = Field(alias="OPENAI_TOKEN_LIMIT_TPM")
+    tokens_per_day: int = Field(alias="OPENAI_TOKEN_LIMIT_TPD")
+    requests_per_minute: int = Field(alias="OPENAI_TOKEN_LIMIT_RPM")
+    tokens_per_request: int = Field(alias="OPENAI_TOKENS_PER_REQUEST")
 
     def get_client(self):
         return OpenAI(api_key=self.api_key)

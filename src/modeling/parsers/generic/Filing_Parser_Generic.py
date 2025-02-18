@@ -5,9 +5,18 @@ from modeling.parsers.util import Parsed_Filing_Generic, Filing_Section_Generic
 from enum import Enum
 from typing import Type
 import logging
+import warnings
+
+# Suppress the BeautifulSoup warning for features="xml"
+warnings.filterwarnings("ignore", category=UserWarning, message='.*features="xml".*')
 
 
 class Filing_Parser_Generic(BaseModel):
+    
+    @staticmethod
+    def get_cleaned_text(html: str) -> str:
+        soup = BeautifulSoup(html, "lxml")
+        return soup.get_text()
 
     @staticmethod
     def parse_filing(html: str, titles_enum: Type[Enum]) -> Parsed_Filing_Generic:

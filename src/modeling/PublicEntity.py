@@ -11,9 +11,8 @@ from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
 from modeling.filing.SEC_Filing import SEC_Filing
 from modeling.filing.SEC_Form_Types import SEC_Form_Types
 
-from services.ai.bitcoin_update import *
-from services.ai.chain_of_thought import *
 from services.ai.bitcoin_events import *
+from services.ai.events_transformer import *
 from modeling.filing.Bitcoin_Filing import Bitcoin_Filing
 
 
@@ -179,14 +178,24 @@ class PublicEntity(BaseModel):
             not in [bf.url for bf in self.bitcoin_filings]
         ]
         
+        # Load the html content for the new bitcoin filings
+        new_bitcoin_filings_w_content = await Bitcoin_Filing.load_html_content_for(new_bitcoin_filings)
         
         # Extract the bitcoin events for the new bitcoin filings (adhere to rate limit)
-        new_bitcoin_filings = await Bitcoin_Filing.extract_bitcoin_events_for(new_bitcoin_filings)
-          
+        new_bitcoin_filings_w_events = await Bitcoin_Filing.extract_bitcoin_events_for(new_bitcoin_filings_w_content)
+        
+        # Parse the extracted events into Bitcoin treasury statuses
+        new_bitcoin_filings_w_treasury_stats = await Bitcoin_Filing.parse_bitcoin_events_for(new_bitcoin_filings_w_events)
+        
+        # Remove the raw text from the bitcoin filing to save space in the database
+        for filing in new_bitcoin_filings_w_treasury_stats:
+            filing.raw_text = ""
+        
         # Add the new bitcoin filings to the entity
-        self.bitcoin_filings.extend(new_bitcoin_filings)
+        self.bitcoin_filings.extend(new_bitcoin_filings_w_treasury_stats)
         logger.info(
             f"Added {len(new_bitcoin_filings)} new Bitcoin filings to entity {self.name}"
         )
         
         return self
+    

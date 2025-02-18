@@ -9,32 +9,21 @@ from openai import AsyncOpenAI
 from config import openai_settings
 from modeling.bitcoin_purchase.BitcoinPurchase import BitcoinPurchase
 from modeling.filing.SEC_Filing import SEC_Filing
+from modeling.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
 
 
 class BitcoinEventType(str, Enum):
     # Bitcoin Transactions
-    DEFINITIVE_BITCOIN_ACQUISITION = "Definitive Bitcoin Acquisition"
-    DEFINITIVE_BITCOIN_SALE = "Definitive Bitcoin Sale"
-
+    DEFINITIVE_BITCOIN_ACQUISITION = "Definitive Bitcoin Acquisition - Do not include approvals for an acquisition or sale. Only add events where the acquisition or sale has been completed. "
+    DEFINITIVE_BITCOIN_SALE = "Definitive Bitcoin Sale - Do not include approvals for an acquisition or sale. Only add events where the acquisition or sale has been completed.  "
     # Bitcoin Holdings Disclosures
-    DEFINITIVE_DISCLOSURE_OF_TOTAL_AMOUNT_OF_BITCOIN = "A definitive disclosure of the total amount of Bitcoin held by the entity"
-
-    # Financial Instruments Used to Acquire Bitcoin
-    ATM_STOCK_ISSUANCE_FOR_BITCOIN = "At The Market (ATM) Stock Issuance to purchase Bitcoin"
-    CONVERTIBLE_BOND_ISSUANCE_FOR_BITCOIN = "Convertible Bond Issuance to purchase Bitcoin"
-    PREFERRED_STOCK_ISSUANCE_FOR_BITCOIN = "Preferred Stock Issuance to purchase Bitcoin"
-    CASH_FOR_BITCOIN = "Cash used to purchase Bitcoin"
-    
-    # Bitcoin metrics
-    BITCOIN_YIELD = "An event about the Bitcoin Yield KPI of the entity"
-    
+    DISCLOSURE_OF_TOTAL_AMOUNT_OF_BITCOIN = "Definitive Bitcoin Holdings Statement - This event should have a statement reporting total amount of bitcoin held by the entity"
     #Other
-    BITCOIN_ANNOUNCEMENT = "An announcement about Bitcoin. This could be an announcement of a new Bitcoin strategy, etc..."
+    BITCOIN_ANNOUNCEMENT = "Bitcoin Announcement Event"
+    BITCOIN_YIELD_STATEMENT = "Bitcoin Yield Metric Statement Event"
 
 class BitcoinEvent(BaseModel):
-    event_type: BitcoinEventType = Field(
-        ...,
-        description="The type of the event."),
+    event_type: BitcoinEventType = Field(..., description="The type of bitcoin event. "),
     event_description: str = Field(
         ...,
         description="A detailed description of the event. This description should be concise and informative, \
@@ -45,7 +34,8 @@ class BitcoinEvent(BaseModel):
     )
 
     confidence_score: float = Field(
-        description="The confidence score of the event extraction. This is primarily based on the typing of the event."
+        description="The confidence score of the event extraction. This should be a value between 0 and 1. \
+            Focus on whether the type of event correctly reflects the content of the event description."
     )
 
 
@@ -83,7 +73,7 @@ class EventsExtractor:
             self.logger.error(f"Error initializing OpenAI API: {e}")
 
     async def extract_events(
-        self, html_filing: str
+        self, raw_text: str
     ) -> Optional[BitcoinFilingEventsResult]:
         try:
             chat_completion = await self.client.beta.chat.completions.parse(
@@ -95,7 +85,7 @@ class EventsExtractor:
                     },
                     {
                         "role": "user",
-                        "content": self.user_prompt + html_filing[0:100000],
+                        "content": self.user_prompt + raw_text[0:127500],
                     },
                 ],
                 response_format=BitcoinFilingEventsResult,
