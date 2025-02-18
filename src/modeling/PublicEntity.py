@@ -199,3 +199,20 @@ class PublicEntity(BaseModel):
         
         return self
     
+    def get_bitcoin_treasury_updates(self) -> List[BitcoinTreasuryUpdate]:
+        return [
+            filing.bitcoin_treasury_update
+            for filing in self.bitcoin_filings
+            if filing.has_total_bitcoin_holdings
+        ]
+    
+    def get_bitcoin_total_holdings_statements(self) -> List[TotalBitcoinHoldings]:
+        return [ filing.total_bitcoin_holdings for filing in self.bitcoin_filings if filing.has_total_bitcoin_holdings]
+    
+    
+    def get_btc_amt_in_treasury(self) -> float:
+        # Return the latest and most accurate bitcoin holdings
+        for filing in sorted(self.bitcoin_filings, key=lambda x: datetime.fromisoformat(x.file_date), reverse=True):
+            if filing.has_total_bitcoin_holdings:
+                return filing.total_bitcoin_holdings.total_bitcoin_holdings
+        return 0.0

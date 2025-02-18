@@ -182,6 +182,12 @@ class Bitcoin_Filing(BaseModel):
 
         return bitcoin_filings
     
+    def get_bitcoin_total_holdings(self) -> Optional[TotalBitcoinHoldings]:
+        return self.total_bitcoin_holdings
+    
+    def get_bitcoin_treasury_update(self) -> Optional[BitcoinTreasuryUpdate]:
+        return self.bitcoin_treasury_update
+    
     
     
     
