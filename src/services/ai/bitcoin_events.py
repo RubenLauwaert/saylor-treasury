@@ -26,8 +26,8 @@ class BitcoinEvent(BaseModel):
     event_type: BitcoinEventType = Field(..., description="The type of bitcoin event. "),
     event_description: str = Field(
         ...,
-        description="A detailed description of the event. This description should be concise and informative, \
-            meaning: When dates are given , report the exact date. When amounts are given, report the exact amount. "
+        description="A detailed description of the event. This description should be informative \
+            and provide enough context for the event. This description field will be used later to extract structured data."
     )
     event_keywords: List[str] = Field(
         description="Keywords related to the event. Avoid keywords with numerical values."

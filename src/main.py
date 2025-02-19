@@ -80,12 +80,12 @@ async def main():
 
     # retrieve entity
 
-    entity = entity_repo.get_entity_by_ticker("MSTR")
+    entity = entity_repo.get_entity_by_ticker("CLSK")
     updated_entity = await entity.load_new_bitcoin_filings()
-    entity_repo.add_entity(updated_entity)
     
-    # total bitcoin holdings
-    total_bitcoin_holdings = updated_entity.get_btc_amt_in_treasury()
-    print(total_bitcoin_holdings)
+    # Update bitcoin treasury data
+    total_bitcoin_holdings = updated_entity.update_btc_treasury_data()
+    
+    entity_repo.add_entity(updated_entity)
 
 asyncio.run(main())

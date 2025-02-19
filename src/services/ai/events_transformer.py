@@ -8,29 +8,43 @@ from openai import AsyncOpenAI
 from config import openai_settings
 from services.ai.bitcoin_events import *
 
+
+
 class BitcoinTreasuryUpdate(BaseModel):
     type: Literal["Purchase", "Sale"]
-    update_date: Optional[str] = Field(
-        ...,
-        description="The date of the bitcoin treasury update in isoformat YYYY-MM-DD",
-    )
+    
     bitcoin_amount: Optional[float] = Field(
-        None, description="The amount of bitcoin acquired or sold"
+        None, description="The amount of bitcoin acquired or sold. If this value is not explicitly stated in the input but inferred or calculated, set 'bitcoin_amount_filled_in' to True."
     )
-    average_price_per_bitcoin: Optional[float] = Field(
-        None, description="The average price per bitcoin for the bitcoin acquisition or sale"
+    average_price_per_bitcoin: Optional[int] = Field(
+        None, description="The average price per bitcoin for the acquisition or sale. If this value is not explicitly stated in the input but inferred or calculated, set 'average_price_per_bitcoin_filled_in' to True."
     )
-    amount_in_usd: Optional[float] = Field(
-        None, description="The amount of dollars spent or received for the bitcoin acquisition or sale"
+    amount_in_usd: Optional[int] = Field(
+        None, description="The total amount in USD spent or received for the acquisition or sale. If this value is not explicitly stated in the input but inferred or calculated, set 'amount_in_usd_filled_in' to True."
     )
+
+    # Flags for whether AI inferred values
+    bitcoin_amount_filled_in: bool = Field(
+        ..., description="Set to True if 'bitcoin_amount' was inferred or calculated instead of being explicitly found in the input."
+    )
+    
+    average_price_per_bitcoin_filled_in: bool = Field(
+        ..., description="Set to True if 'average_price_per_bitcoin' was inferred or calculated instead of being explicitly found in the input."
+    )
+    
+    amount_in_usd_filled_in: bool = Field(
+        ..., description="Set to True if 'amount_in_usd' was inferred or calculated instead of being explicitly found in the input."
+    )
+
 
     @model_validator(mode='before')
     def check_either_bitcoin_amount_or_amount_in_usd(cls, values):
         bitcoin_amount = values.get('bitcoin_amount')
         amount_in_usd = values.get('amount_in_usd')
+        average_price_per_bitcoin = values.get('average_price_per_bitcoin')
 
-        if bitcoin_amount is None and amount_in_usd is None:
-            raise ValueError("One of 'bitcoin_amount' or 'amount_in_usd' must be provided.")
+        if bitcoin_amount is None:
+            raise ValueError("Bitcoin amount or amount in dollars must be present.")
 
         return values
 
@@ -39,10 +53,10 @@ class TotalBitcoinHoldings(BaseModel):
     total_bitcoin_holdings: Optional[float] = Field(
          ..., description="The total amount of bitcoin held by the entity"
     )
-    average_price_per_bitcoin: Optional[float] = Field(
+    average_price_per_bitcoin: Optional[int] = Field(
         ..., description="The average price per bitcoin for the total bitcoin holdings"
     )
-    total_amount_in_usd: Optional[float] = Field(
+    total_amount_in_usd: Optional[int] = Field(
         ..., description="The total amount of dollars spent for the total bitcoin holdings"
     )
     

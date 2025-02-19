@@ -8,6 +8,7 @@ from services.ai.events_transformer import *
 from modeling.sec_edgar.efts.query import QueryHit
 from modeling.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
 
+
 from config import openai_settings as ai_settings
 
 
@@ -139,7 +140,7 @@ class Bitcoin_Filing(BaseModel):
     @staticmethod
     async def load_html_content_for(bitcoin_filings: List["Bitcoin_Filing"]) -> List["Bitcoin_Filing"]:
         batch_size = 10  # Number of requests per batch
-        delay = 1  # Delay in seconds between batches
+        delay = 1.1  # Delay in seconds between batches
         for i in range(0, len(bitcoin_filings), batch_size):
             batch = bitcoin_filings[i:i + batch_size]
             await asyncio.gather(*(filing.load_html_content() for filing in batch))
@@ -152,35 +153,52 @@ class Bitcoin_Filing(BaseModel):
     async def extract_bitcoin_events_for(bitcoin_filings: List["Bitcoin_Filing"]) -> List["Bitcoin_Filing"]:
         rpm = ai_settings.requests_per_minute
         tpm = ai_settings.tokens_per_minute
+        chars_per_min = tpm * 3 # Conservatively assume 3 characters per token
         tokens_per_request = ai_settings.tokens_per_request
-
-        batch_size = min(rpm, int(tpm / tokens_per_request))  # Number of requests per batch
-        delay = 60  # Delay in seconds between batches
         event_extractor = EventsExtractor()
-        for i in range(0, len(bitcoin_filings), batch_size):
-            batch = bitcoin_filings[i:i + batch_size]
-            await asyncio.gather(*(filing.extract_bitcoin_events(event_extractor) for filing in batch))
-            if i + batch_size < len(bitcoin_filings):
-                await asyncio.sleep(delay)  # Wait for 1 second between batches
+        sum_chars = sum([len(filing.raw_text) for filing in bitcoin_filings])
+        logging.info(f"Sum of chars: {sum_chars}")
+        batch_size = len(bitcoin_filings)
+        # If sum chars is less then chars_per_min then we can process all filings in one batch
+        if sum_chars < chars_per_min and len(bitcoin_filings) < rpm:
+            await asyncio.gather(*(filing.extract_bitcoin_events(event_extractor) for filing in bitcoin_filings))
+            return bitcoin_filings
+        else:
+            batch_size = min(rpm, int(tpm / tokens_per_request))  # Number of requests per batch
+            delay = 60  # Delay in seconds between batches
+            event_extractor = EventsExtractor()
+            for i in range(0, len(bitcoin_filings), batch_size):
+                batch = bitcoin_filings[i:i + batch_size]
+                await asyncio.gather(*(filing.extract_bitcoin_events(event_extractor) for filing in batch))
+                if i + batch_size < len(bitcoin_filings):
+                    await asyncio.sleep(delay)  # Wait for 1 second between batches
 
-        return bitcoin_filings
+            return bitcoin_filings
     
     @staticmethod
     async def parse_bitcoin_events_for(bitcoin_filings: List["Bitcoin_Filing"]) -> List["Bitcoin_Filing"]:
         transformer = EventsTransformer()
         rpm = ai_settings.requests_per_minute
         tpm = ai_settings.tokens_per_minute
+        chars_per_min = tpm * 3 # Conservatively assume 3 characters per token
         tokens_per_request = ai_settings.tokens_per_request
+        sum_chars = 100000
+        batch_size = len(bitcoin_filings)
+        # If sum chars is less then chars_per_min then we can process all filings in one batch
+        if sum_chars < chars_per_min and len(bitcoin_filings) < rpm:
+            await asyncio.gather(*(filing.parse_bitcoin_events(transformer) for filing in bitcoin_filings))
+            return bitcoin_filings
+        else:
+            batch_size = min(rpm, int(tpm / tokens_per_request))  # Number of requests per batch
+            delay = 60  # Delay in seconds between batches
+            event_extractor = EventsExtractor()
+            for i in range(0, len(bitcoin_filings), batch_size):
+                batch = bitcoin_filings[i:i + batch_size]
+                await asyncio.gather(*(filing.parse_bitcoin_events(transformer) for filing in batch))
+                if i + batch_size < len(bitcoin_filings):
+                    await asyncio.sleep(delay)  # Wait for 1 second between batches
 
-        batch_size = min(rpm, int(tpm / tokens_per_request))  # Number of requests per batch
-        delay = 60  # Delay in seconds between batches
-        for i in range(0, len(bitcoin_filings), batch_size):
-            batch = bitcoin_filings[i:i + batch_size]
-            await asyncio.gather(*(filing.parse_bitcoin_events(transformer) for filing in batch))
-            if i + batch_size < len(bitcoin_filings):
-                await asyncio.sleep(delay)  # Wait for 1 second between batches
-
-        return bitcoin_filings
+            return bitcoin_filings
     
     def get_bitcoin_total_holdings(self) -> Optional[TotalBitcoinHoldings]:
         return self.total_bitcoin_holdings
