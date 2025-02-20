@@ -18,6 +18,19 @@ class Base_EFTS_Query(BaseModel):
 
     class Config:
         json_encoders = {date: lambda v: v.isoformat()}
+        
+    # Setters
+    
+    def set_start_date(self, start_date: date) -> "Base_EFTS_Query":
+        self.startdt = start_date.isoformat()
+        return self
+    def set_end_date(self, end_date: date):
+        self.enddt = end_date.isoformat()
+        
+    def to_dict(self):
+        return self.model_dump(
+            exclude_none=True
+        )
 
 
 class Base_Bitcoin_Query(Base_EFTS_Query):

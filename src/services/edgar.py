@@ -9,26 +9,17 @@ import aiohttp
 import asyncio
 
 
-# def retrieve_public_entities() -> List[PublicEntity]:
-#     public_entities = []
-#     url_str = ses.company_tickers_url
-#     request_header = ses.user_agent_header
-#     response = requests.get(url=url_str, headers=request_header)
-
-#     if response.status_code == 200:
-#         tickers_and_ciks = response.json()
-#         for entity in tickers_and_ciks.values():
-#             cik = str(entity["cik_str"]).zfill(10)
-#             ticker = entity["ticker"]
-#             title = entity["title"]
-#             public_entities.append(PublicEntity(name=title, ticker=ticker, cik=cik))
-#     else:
-#         raise Exception(
-#             f"Failed to retrieve public entities -  Status code { response.status }"
-#         )
-
-#     return public_entities
-
+def retrieve_company_tickers() -> List[dict]:
+    url_str = ses.company_tickers_url
+    headers = ses.user_agent_header
+    response = requests.get(url=url_str, headers=headers)
+    if response.status_code == 200:
+        result = response.json()
+        return result
+    else:
+        raise Exception(
+            f"Failed to retrieve company facts - Status code { response.status }"
+        )
 
 def retrieve_submissions_for_entity(cik: str):
     url_str = ses.get_formatted_entity_submissions_url(cik=cik)

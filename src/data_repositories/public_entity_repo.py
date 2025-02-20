@@ -87,3 +87,43 @@ class PublicEntityRepository:
         result = self.collection.bulk_write(operations)
         self.logger.info(f"Deleted {result.deleted_count} entities.")
         return result.deleted_count
+    
+    def get_bitcoin_mining_entities(self) -> List[PublicEntity]:
+        entities = self.collection.find({"sic": "6199", "ticker": {"$exists": True, "$ne": None}, "entity_type": "operating"})
+        self.logger.info(
+            f"Retrieved {self.collection.count_documents({'sic': '6199', 'ticker': {'$exists': True, '$ne': None}})} Bitcoin mining entities with a ticker from the collection."
+        )
+        return [PublicEntity(**entity) for entity in entities]
+    
+    
+    def get_entities_by_type(self, entity_type: str) -> List[PublicEntity]:
+        entities = self.collection.find({"entity_type": entity_type, "ticker": {"$exists": True, "$ne": None}})
+        self.logger.info(
+            f"Retrieved {self.collection.count_documents({'entity_type': 'operating'})} operating entities from the collection."
+        )
+        return [PublicEntity(**entity) for entity in entities]
+    
+    def get_entities_by_sic(self, sic_str: str) -> List[PublicEntity]:
+        entities = self.collection.find({"sic": sic_str, "ticker": {"$exists": True, "$ne": None}})
+        self.logger.info(
+            f"Retrieved {self.collection.count_documents({'sic': sic_str})} entities with SIC {sic_str} from the collection."
+        )
+        return [PublicEntity(**entity) for entity in entities]
+    
+    def get_entities_w_existing_ticker(self) -> List[PublicEntity]:
+        entities = self.collection.find({"ticker": {"$exists": True, "$ne": None}})
+        self.logger.info(
+            f"Retrieved {self.collection.count_documents({'ticker': {'$exists': True, '$ne': None}})} entities with a ticker from the collection."
+        )
+        return [PublicEntity(**entity) for entity in entities]
+    
+    
+    def get_foreign_entities(self) -> List[PublicEntity]:
+        entities = self.collection.find({
+            "filing_metadatas": {"$elemMatch": {"form": "6-K"}},
+            "filing_metadatas.form": {"$ne": "8-K"}
+        })
+        self.logger.info(
+            f"Retrieved {self.collection.count_documents({'filing_metadatas': {'$elemMatch': {'form': '6-K'}}, 'filing_metadatas.form': {'$ne': '8-K'}})} foreign entities with form 6-K and no form 8-K from the collection."
+        )
+        return [PublicEntity(**entity) for entity in entities]

@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime
 from pydantic import BaseModel, Field
 from enum import Enum
-from typing import Optional, List, Set
+from typing import Any, Optional, List, Set
 from modeling.sec_edgar.efts.query import QueryHit
 from modeling.sec_edgar.submissions.SubmissionsResponse import SubmissionsResponse
 import logging
@@ -82,13 +82,13 @@ class PublicEntity(BaseModel):
         default=None, description="The description of the SIC code."
     )
     website: Optional[str] = Field(default=None, description="The company's website.")
-    exchanges: List[str] = Field(
-        default=[], description="The stock exchanges the company is listed on."
+    exchanges: Optional[List[Any]] = Field(
+        default=None, description="The stock exchanges the company is listed on."
     )
     category: Optional[str] = Field(
         default=None, description="The category of the company."
     )
-    phone: str = Field(default=None, description="The company's phone number.")
+    phone: Optional[str] = Field(default=None, description="The company's phone number.")
     
     # Filing data
     
@@ -143,7 +143,7 @@ class PublicEntity(BaseModel):
         sic = submission_response.get("sic")
         sic_description = submission_response.get("sicDescription")
         website = submission_response.get("website")
-        exchanges = submission_response.get("exchanges")
+        exchanges = submission_response.get("exchanges") or []
         category = submission_response.get("category")
         phone = submission_response.get("phone")
 

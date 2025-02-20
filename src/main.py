@@ -1,6 +1,5 @@
 from services.daemon import setup_logging
-from modeling.PublicEntity import PublicEntity
-from services.edgar import get_entity_ciks_from_queries_async
+from services.update_db import DatabaseUpdater
 
 from database import (
     public_entity_collection,
@@ -28,7 +27,7 @@ setup_logging()
 
 main_bitcoin_entity_query = {
     "q": "bitcoin",
-    "forms": "8-K",
+    # "forms": "8-K",
     "dateRange": "custom",
     "startdt": "2020-08-10",
     "enddt": date.today().strftime("%Y-%m-%d"),
@@ -58,34 +57,16 @@ main_bitcoin_entity_query_3 = {
 
 # hits = get_hits_from_queries([main_bitcoin_entity_query])
 
-# # DatabaseUpdater
-# dbu = DatabaseUpdater()
+# DatabaseUpdater
+dbu = DatabaseUpdater()
 
 
 # dbu.sync_bitcoin_entities()
 
 
 async def main():
-    # cik = "0001050446"  # CIK for MicroStrategy Incorporated (MSTR)
-    # entity = await PublicEntity.from_cik(cik)
-
-    # # Get bitcoin entity ciks
-    # bitcoin_entity_ciks = await get_entity_ciks_from_queries_async([main_bitcoin_entity_query])
-
-    # # Generate entities from ciks
-    # bitcoin_entities = await PublicEntity.from_ciks(bitcoin_entity_ciks)
-
-    # Add public entity to the database
-    entity_repo = PublicEntityRepository(public_entity_collection)
-
-    # retrieve entity
-
-    entity = entity_repo.get_entity_by_ticker("CLSK")
-    updated_entity = await entity.load_new_bitcoin_filings()
     
-    # Update bitcoin treasury data
-    total_bitcoin_holdings = updated_entity.update_btc_treasury_data()
-    
-    entity_repo.add_entity(updated_entity)
+    # Sync bitcoin entities in the database
+    await dbu.sync_bitcoin_entities()
 
 asyncio.run(main())
