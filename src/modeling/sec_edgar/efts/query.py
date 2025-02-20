@@ -6,7 +6,7 @@ from datetime import date
 class Base_EFTS_Query(BaseModel):
     q: str = Field(..., description="The query string.")
     startdt: str = Field(..., description="The start date for the query.")
-    enddt: str = Field(..., description="The end date for the query.")
+    enddt: str = Field(default=date.today().isoformat(), description="The end date for the query.")
     ciks: Optional[str] = Field(None, description="The CIKs to search for.")
     forms: Optional[List[str]] = Field(None, description="The forms to search for.")
     category: Optional[str] = Field(None, description="The category to search for.")

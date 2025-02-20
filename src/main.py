@@ -60,13 +60,20 @@ main_bitcoin_entity_query_3 = {
 # DatabaseUpdater
 dbu = DatabaseUpdater()
 
+# Public entity repo
+entity_repo = PublicEntityRepository(public_entity_collection)
+
 
 # dbu.sync_bitcoin_entities()
 
 
 async def main():
     
-    # Sync bitcoin entities in the database
-    await dbu.sync_bitcoin_entities()
+    # # Sync bitcoin entities in the database
+    # await dbu.sync_bitcoin_entities()
+
+    # Get MSTR entity
+    mstr_entity = entity_repo.get_entity_by_ticker("MSTR")
+    await mstr_entity.load_13fhr_filings()
 
 asyncio.run(main())

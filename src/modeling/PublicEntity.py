@@ -1,9 +1,8 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, date
 from pydantic import BaseModel, Field
 from enum import Enum
 from typing import Any, Optional, List, Set
-from modeling.sec_edgar.efts.query import QueryHit
 from modeling.sec_edgar.submissions.SubmissionsResponse import SubmissionsResponse
 import logging
 
@@ -14,7 +13,7 @@ from modeling.filing.SEC_Form_Types import SEC_Form_Types
 from services.ai.bitcoin_events import *
 from services.ai.events_transformer import *
 from modeling.filing.Bitcoin_Filing import Bitcoin_Filing
-
+from util import ImportantDates
 from collections import defaultdict
 
 
@@ -331,4 +330,31 @@ class PublicEntity(BaseModel):
         
         # Update the bitcoin holdings for the entity
         self.total_btc_holdings = self.get_btc_amt_in_treasury()
+        return self
+    
+    
+    async def load_13fhr_filings(self) -> "PublicEntity":
+        
+        from modeling.sec_edgar.efts.query import Base_EFTS_Query
+        from services.edgar import get_query_result_async
+        from modeling.parsers.sec_13f_hr.parser_13fhr_xml import parse_sec_xml
+        import pandas as pd
+        
+        # Logger
+        logger = logging.getLogger(self.__class__.__name__)
+              
+
+        # Retrieve QueryResult (QueryHits) for 13FHR query
+        base_13FHR_query = Base_EFTS_Query(q=self.ticker, forms=["13F-HR"], startdt=date(2024,1,1).isoformat()).to_dict()
+        query_result = await get_query_result_async(q=base_13FHR_query)
+        hits = query_result.hits
+        url = hits[12].url
+        content = await SEC_Filing.get_raw_content_html(url)
+        parsed_content = parse_sec_xml(content)
+        filtered_parsed_content = [entry for entry in parsed_content if self.ticker in entry["nameOfIssuer"]]
+        # Convert to DataFrame
+        df = pd.DataFrame(filtered_parsed_content)
+    
+        logger.info(df)
+       
         return self
