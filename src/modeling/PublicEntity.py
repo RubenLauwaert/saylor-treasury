@@ -97,7 +97,10 @@ class PublicEntity(BaseModel):
 
     accepted_bitcoin_filing_types: List[SEC_Form_Types] = Field(
         default=[
-            SEC_Form_Types.FORM_8K
+            SEC_Form_Types.FORM_8K,
+            SEC_Form_Types.FORM_10Q,
+            SEC_Form_Types.FORM_10K,
+            SEC_Form_Types.FORM_424B5
 
         ],
         description="The list of accepted filing types for bitcoin filings.",
@@ -238,21 +241,21 @@ class PublicEntity(BaseModel):
             not in [bf.url for bf in self.bitcoin_filings]
         ]
         
-        # Load the html content for the new bitcoin filings
-        new_bitcoin_filings_w_content = await Bitcoin_Filing.load_html_content_for(new_bitcoin_filings)
+        # # Load the html content for the new bitcoin filings
+        # new_bitcoin_filings_w_content = await Bitcoin_Filing.load_html_content_for(new_bitcoin_filings)
         
-        # Extract the bitcoin events for the new bitcoin filings (adhere to rate limit)
-        new_bitcoin_filings_w_events = await Bitcoin_Filing.extract_bitcoin_events_for(new_bitcoin_filings_w_content)
+        # # Extract the bitcoin events for the new bitcoin filings (adhere to rate limit)
+        # new_bitcoin_filings_w_events = await Bitcoin_Filing.extract_bitcoin_events_for(new_bitcoin_filings_w_content)
         
-        # Parse the extracted events into Bitcoin treasury statuses
-        new_bitcoin_filings_w_treasury_stats = await Bitcoin_Filing.parse_bitcoin_events_for(new_bitcoin_filings_w_events)
+        # # Parse the extracted events into Bitcoin treasury statuses
+        # new_bitcoin_filings_w_treasury_stats = await Bitcoin_Filing.parse_bitcoin_events_for(new_bitcoin_filings_w_events)
         
-        # Remove the raw text from the bitcoin filing to save space in the database
-        for filing in new_bitcoin_filings_w_treasury_stats:
-            filing.raw_text = ""
+        # # Remove the raw text from the bitcoin filing to save space in the database
+        # for filing in new_bitcoin_filings_w_treasury_stats:
+        #     filing.raw_text = ""
         
         # Add the new bitcoin filings to the entity
-        self.bitcoin_filings.extend(new_bitcoin_filings_w_treasury_stats)
+        self.bitcoin_filings.extend(all_bitcoin_filings)
  
         return self
     
@@ -345,13 +348,17 @@ class PublicEntity(BaseModel):
               
 
         # Retrieve QueryResult (QueryHits) for 13FHR query
-        base_13FHR_query = Base_EFTS_Query(q=self.ticker, forms=["13F-HR"], startdt=date(2024,1,1).isoformat()).to_dict()
+        base_13FHR_query = Base_EFTS_Query(q="MICROSTRATEGY", forms=["13F-HR"], ciks="0000093751",startdt=date(2024,1,1).isoformat()).to_dict()
         query_result = await get_query_result_async(q=base_13FHR_query)
         hits = query_result.hits
-        url = hits[12].url
-        content = await SEC_Filing.get_raw_content_html(url)
-        parsed_content = parse_sec_xml(content)
-        filtered_parsed_content = [entry for entry in parsed_content if self.ticker in entry["nameOfIssuer"]]
+        ciks = set([hit.cik for hit in hits])
+        logger.info(len(ciks))
+        urls = [hit.url for hit in hits]
+        dates = [hit.file_date for hit in hits]
+        logger.info(dates)
+        filings_raw = await SEC_Filing.get_html_content_for(urls)
+        parsed_content = [parse_sec_xml(filing_raw) for filing_raw in filings_raw]
+        filtered_parsed_content = [entry for entry in parsed_content[2] if "MICROSTRATEGY" in entry["nameOfIssuer"]]
         # Convert to DataFrame
         df = pd.DataFrame(filtered_parsed_content)
     

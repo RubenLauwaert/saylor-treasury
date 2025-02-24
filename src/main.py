@@ -1,10 +1,9 @@
+import logging
 from services.daemon import setup_logging
 from services.update_db import DatabaseUpdater
 
 from database import (
-    public_entity_collection,
-    sec_filing_metadatas_collection,
-    filings_8k_collection,
+    public_entity_collection
 )
 from data_repositories.sec_filing_metadata_repo import SEC_Filing_Metadata_Repository
 from data_repositories.sec_filing_8k_repo import SEC_Filing_8K_Repository
@@ -14,6 +13,8 @@ import asyncio
 import json
 import requests
 from datetime import date
+
+from services.ai.press_release_extractor import PressReleaseExtractor
 
 
 setup_logging()
@@ -54,7 +55,6 @@ main_bitcoin_entity_query_3 = {
 
 # Send efts request
 
-
 # hits = get_hits_from_queries([main_bitcoin_entity_query])
 
 # DatabaseUpdater
@@ -68,12 +68,7 @@ entity_repo = PublicEntityRepository(public_entity_collection)
 
 
 async def main():
-    
-    # # Sync bitcoin entities in the database
     # await dbu.sync_bitcoin_entities()
-
-    # Get MSTR entity
-    mstr_entity = entity_repo.get_entity_by_ticker("MSTR")
-    await mstr_entity.load_13fhr_filings()
-
+    
+    await dbu.sync_bitcoin_filings()
 asyncio.run(main())

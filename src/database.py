@@ -5,7 +5,7 @@ MongoDB database initialization
 from config import mongosettings
 from pymongo import MongoClient
 from pymongo.collection import Collection
-
+from datetime import datetime, timezone
 
 client = MongoClient(mongosettings.uri)
 db = client[mongosettings.database_name]
@@ -18,13 +18,27 @@ def init_collections():
     # Initialize public_entity collection
     if mongosettings.entities_coll_name not in db.list_collection_names():
         db.create_collection(mongosettings.entities_coll_name)
-    # Initialize sec_filing_metadata collection
-    if mongosettings.filing_metadatas_coll_name not in db.list_collection_names():
-        db.create_collection(mongosettings.filing_metadatas_coll_name)
-    # Initialize 8k-filings collection
-    if mongosettings.filings_8k_coll_name not in db.list_collection_names():
-        db.create_collection(mongosettings.filings_8k_coll_name)
+    # Initialize util collection
+    if mongosettings.util_coll_name not in db.list_collection_names():
+        db.create_collection(mongosettings.util_coll_name)
     
+    
+    # Ensure a single document exists in util_collection
+    util_collection = db[mongosettings.util_coll_name]
+    default_util_doc = {
+        "_id": "util_values",
+        "last_updated_db": datetime.now(),
+        "last_updated": datetime.now(),
+        "cache_expiry": datetime.now(),
+        "version": 1.0
+    }
+
+    # Use upsert to insert the document only if it doesn't already exist
+    util_collection.update_one(
+        {"_id": "util_values"},
+        {"$setOnInsert": default_util_doc},
+        upsert=True
+    )
 
 
 # Initialize collections if they do not yet exist
@@ -32,6 +46,4 @@ init_collections()
 
 # Export collections
 public_entity_collection: Collection = db[mongosettings.entities_coll_name]
-sec_filing_metadatas_collection: Collection = db[mongosettings.filing_metadatas_coll_name]
-filings_8k_collection: Collection = db[mongosettings.filings_8k_coll_name]
-btc_purchases_collection: Collection = db[mongosettings.btc_purchases_coll_name]
+util_collection: Collection = db[mongosettings.util_coll_name]

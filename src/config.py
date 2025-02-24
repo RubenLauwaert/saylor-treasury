@@ -16,13 +16,7 @@ class MongoSettings(BaseSettings):
     uri: str = Field(validation_alias=AliasChoices("mongodb_uri", "mongodb_dsn"))
     database_name: str = Field(alias="mongodb_db_name")
     entities_coll_name: str = Field(validation_alias="mongodb_collection_entities")
-    filings_8k_coll_name: str = Field(validation_alias="mongodb_collection_8k_filings")
-    filing_metadatas_coll_name: str = Field(
-        validation_alias="mongodb_collection_sec_filing_metadatas"
-    )
-    btc_purchases_coll_name: str = Field(
-        validation_alias="mongodb_collection_btc_purchases"
-    )
+    util_coll_name: str = Field(validation_alias="MONGODB_COLLECTION_UTIL")
 
 
 mongosettings = MongoSettings()

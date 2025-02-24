@@ -1,8 +1,6 @@
 import logging
 from datetime import date
 from data_repositories.public_entity_repo import PublicEntityRepository
-from data_repositories.sec_filing_metadata_repo import SEC_Filing_Metadata_Repository
-from data_repositories.sec_filing_8k_repo import SEC_Filing_8K_Repository
 from modeling.sec_edgar.submissions.SubmissionsRequest import SubmissionsRequest
 from modeling.sec_edgar.efts.EFTS_Request import EFTS_Request, EFTS_Response
 from modeling.PublicEntity import PublicEntity
@@ -12,9 +10,7 @@ from modeling.filing.sec_10q.Filing_10Q import Filing_10Q
 from pymongo.collection import Collection
 from queries import base_bitcoin_8k_company_query, base_bitcoin_balance_sheet_query
 from database import (
-    public_entity_collection,
-    sec_filing_metadatas_collection,
-    filings_8k_collection,
+    public_entity_collection
 )
 from util import ImportantDates
 from logging import Logger
@@ -26,18 +22,12 @@ class DatabaseUpdater:
 
     # Database repositories
     entity_repo: PublicEntityRepository
-    metadata_repo: SEC_Filing_Metadata_Repository
-    filing_8k_repo: SEC_Filing_8K_Repository
     logger: Logger
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
         try:
             self.entity_repo = PublicEntityRepository(public_entity_collection)
-            self.metadata_repo = SEC_Filing_Metadata_Repository(
-                sec_filing_metadatas_collection
-            )
-            self.filing_8k_repo = SEC_Filing_8K_Repository(filings_8k_collection)
             self.logger.info("Initialized database repositories.")
         except Exception as e:
             self.logger.error(f"Error initializing database repositories: {e}")
@@ -46,14 +36,14 @@ class DatabaseUpdater:
 
         try:
             
-            # Bitcoin mining entities
-            mining_entities = self.entity_repo.get_bitcoin_mining_entities()
-            etfs = self.entity_repo.get_foreign_entities()
-            self.logger.info([entity.ticker for entity in mining_entities])
-            self.logger.info([entity.ticker for entity in etfs])
+            entities_w_ticker = self.entity_repo.get_entities_by_type("operating")
+            self.logger.info(f"Found {len(entities_w_ticker)} entities with tickers.")
             # Retrieve all public entities via Edgar API
-            search_query = Base_Bitcoin_Query().set_start_date(ImportantDates.TODAY.value).to_dict()
-            all_entity_ciks = await get_entity_ciks_from_queries_async([search_query])
+            search_query_1 = Base_Bitcoin_Query(forms=["8-K"]).set_start_date(ImportantDates.MSTR_GENESIS_DATE.value).to_dict()
+            search_query_2 = Base_Bitcoin_Query(forms=["10-Q"]).set_start_date(ImportantDates.MSTR_GENESIS_DATE.value).to_dict()
+            search_query_3 = Base_Bitcoin_Query(forms=["10-K"]).set_start_date(ImportantDates.MSTR_GENESIS_DATE.value).to_dict()
+
+            all_entity_ciks = await get_entity_ciks_from_queries_async([search_query_1,search_query_2, search_query_3])
             # Retrieve all entities in the database
             db_entities = self.entity_repo.get_all_entities()
             db_ciks = {entity.cik for entity in db_entities}
@@ -68,6 +58,18 @@ class DatabaseUpdater:
             self.logger.info(f"Synced {len(new_entity_ciks)} new entities.")
         except Exception as e:
             self.logger.error(f"Error syncing bitcoin entities: {e}")
+            
+            
+    async def sync_bitcoin_filings(self):
+        
+        # Only get entities with tickers
+        public_entities = self.entity_repo.get_entities_w_existing_ticker()
+        
+        for entity in public_entities:
+            await entity.load_new_bitcoin_filings()
+            self.logger.info(f"Synced new bitcoin filings for entity: {entity.name}")
+
+        self.entity_repo.update_entities(public_entities)
             
 
 

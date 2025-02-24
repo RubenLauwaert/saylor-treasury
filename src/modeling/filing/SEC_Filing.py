@@ -96,6 +96,20 @@ class SEC_Filing(BaseModel):
             logger.info(f"Error retrieving content from {document_url}: {e}")
 
         return content_html_str
+    
+    @staticmethod
+    async def get_html_content_for(urls: List[str]) -> List[str]:
+        raw_contents = []
+        batch_size = 10  # Number of requests per batch
+        delay = 1.1  # Delay in seconds between batches
+        for i in range(0, len(urls), batch_size):
+            batch = urls[i:i + batch_size]
+            results = await asyncio.gather(*(SEC_Filing.get_raw_content_html(url) for url in batch))
+            raw_contents.extend(results)
+            if i + batch_size < len(urls):
+                await asyncio.sleep(delay)  # Wait for 1 second between batches
+
+        return raw_contents
 
     def __str__(self):
         document_url = self.filing_metadata.document_url

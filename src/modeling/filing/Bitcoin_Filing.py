@@ -30,6 +30,7 @@ class Bitcoin_Filing(BaseModel):
     has_raw_content: bool = Field(default=False)
     has_bitcoin_treasury_update: bool = Field(default=False)
     has_total_bitcoin_holdings: bool = Field(default=False)
+    
     # Raw content
     raw_text: str = Field(default="")
     # Bitcoin Treasury data
