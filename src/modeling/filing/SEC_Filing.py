@@ -78,7 +78,7 @@ class SEC_Filing(BaseModel):
         return results
 
     @staticmethod
-    async def get_raw_content_html(document_url: str) -> str:
+    async def get_raw_content_text(document_url: str) -> str:
         logger = logging.getLogger("SEC_Filing")
         content_html_str = None
         try:
@@ -104,7 +104,7 @@ class SEC_Filing(BaseModel):
         delay = 1.1  # Delay in seconds between batches
         for i in range(0, len(urls), batch_size):
             batch = urls[i:i + batch_size]
-            results = await asyncio.gather(*(SEC_Filing.get_raw_content_html(url) for url in batch))
+            results = await asyncio.gather(*(SEC_Filing.get_raw_content_text(url) for url in batch))
             raw_contents.extend(results)
             if i + batch_size < len(urls):
                 await asyncio.sleep(delay)  # Wait for 1 second between batches

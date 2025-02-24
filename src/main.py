@@ -15,6 +15,8 @@ import requests
 from datetime import date
 
 from services.ai.press_release_extractor import PressReleaseExtractor
+from modeling.parsers.sec_10q.XBRL_Parser_10Q import Parser10QXBRL
+from modeling.filing.SEC_Filing import SEC_Filing
 
 
 setup_logging()
@@ -63,12 +65,26 @@ dbu = DatabaseUpdater()
 # Public entity repo
 entity_repo = PublicEntityRepository(public_entity_collection)
 
+# XBRL 10Q parser
+
+
+
+
+
 
 # dbu.sync_bitcoin_entities()
 
 
 async def main():
-    # await dbu.sync_bitcoin_entities()
+    # awai  t dbu.sync_bitcoin_entities()
     
-    await dbu.sync_bitcoin_filings()
+    entity = entity_repo.get_entity_by_ticker("MARA")
+    filings_10q = entity.get_filing_metadatas_by_form_type("10-Q")
+    filing_url = filings_10q[0].document_url.replace(".htm","_htm.xml")
+    xbrl_string = await SEC_Filing.get_raw_content_text(filing_url)
+    parsed_10q_xbrl = Parser10QXBRL(xbrl_string=xbrl_string, ticker=entity.ticker)
+    units = parsed_10q_xbrl.extract_units()
+    bitcoin_tags = parsed_10q_xbrl.get_bitcoin_related_tags()
+    print(parsed_10q_xbrl.get_bitcoin_summary())
+    
 asyncio.run(main())

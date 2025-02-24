@@ -196,8 +196,13 @@ class PublicEntity(BaseModel):
 
     # Getters
 
+    # Filing metadatas
+    
     def get_filing_metadatas(self) -> List[SEC_Filing_Metadata]:
         return self.filing_metadatas
+    
+    def get_filing_metadatas_by_form_type(self, form_type: str) ->List[SEC_Filing_Metadata]:
+        return [ filing for filing in self.filing_metadatas if filing.form == form_type]
 
     def _get_filing_metadata(
         self, accession_number: str
@@ -206,7 +211,15 @@ class PublicEntity(BaseModel):
             if filing_metadata.accession_number == accession_number:
                 return filing_metadata
         return None
-
+    
+    # Bitcoin filings
+    
+    def get_bitcoin_filings(self) -> List[Bitcoin_Filing]:
+        return self.bitcoin_filings
+    
+    def get_bitcoin_filings_by_form_type(self, form_type: str) -> List[Bitcoin_Filing]:
+        return [ filing for filing in self.bitcoin_filings if filing.form_type == form_type]
+    
     # Updaters
 
     async def load_new_bitcoin_filings(self) -> "PublicEntity":

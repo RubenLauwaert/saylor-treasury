@@ -87,7 +87,7 @@ class Bitcoin_Filing(BaseModel):
         raw_content_html = ""
         try:
             # Retrieve raw html content
-            html_content = await SEC_Filing.get_raw_content_html(self.url)
+            html_content = await SEC_Filing.get_raw_content_text(self.url)
             # Get raw text out of html 
             raw_text = Filing_Parser_Generic.get_cleaned_text(html_content)
             self.raw_text = raw_text

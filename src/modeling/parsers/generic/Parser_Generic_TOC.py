@@ -218,3 +218,13 @@ class Parser_Generic_TOC(BaseModel):
             section = Filing_Section_Generic(title=toc_element.title, content=content)
             sections.append(section)
         return sections
+    
+    @staticmethod
+    def _extract_tables_w_keyword(soup: BeautifulSoup, keyword: str) -> list[PageElement]:
+        tables: ResultSet[PageElement] = soup.find_all("table")
+        tables_w_keyword = []
+        
+        for table in tables:
+            if keyword in table.text:
+                tables_w_keyword.append(table)
+        return tables_w_keyword
