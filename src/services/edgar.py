@@ -2,82 +2,16 @@ from typing import List, Set
 from config import sec_edgar_settings as ses
 from modeling.sec_edgar.efts.EFTS_Response import EFTS_Hit, EFTS_Response
 from modeling.sec_edgar.efts.query import *
-import requests
 import logging
-import time
 import aiohttp
 import asyncio
+from throttler import ApiThrottler
 
-
-def retrieve_company_tickers() -> List[dict]:
-    url_str = ses.company_tickers_url
-    headers = ses.user_agent_header
-    response = requests.get(url=url_str, headers=headers)
-    if response.status_code == 200:
-        result = response.json()
-        return result
-    else:
-        raise Exception(
-            f"Failed to retrieve company facts - Status code { response.status }"
-        )
-
-def retrieve_submissions_for_entity(cik: str):
-    url_str = ses.get_formatted_entity_submissions_url(cik=cik)
-    request_header = ses.user_agent_header
-    # Make request
-    response = requests.get(url=url_str, headers=request_header)
-
-    if response.status_code == 200:
-        result = response.json()
-        return result
-    else:
-        raise Exception(
-            f"Failed to retrieve submissions for entity {cik} - Status code { response.status }"
-        )
         
-async def retrieve_submissions_for_entity_async(cik: str) -> dict:
-    url_str = ses.get_formatted_entity_submissions_url(cik=cik)
-    request_header = ses.user_agent_header
+# HELPER FUNCTIONS
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url=url_str, headers=request_header) as response:
-            if response.status == 200:
-                result = await response.json()
-                return result
-            else:
-                raise Exception(
-                    f"Failed to retrieve submissions for entity {cik} - Status code {response.status}"
-                )
-
-
-def edgar_full_text_search(q: dict) -> List[requests.Response]:
-    logger = logging.getLogger(__name__)
-    responses = []
-    url_str = ses.base_efts_url
-    request_header = ses.user_agent_header
-    first_response = requests.get(url=url_str, params=q, headers=request_header)
-    
-    if first_response.status_code == 200:
-        responses.append(first_response)
-        result = first_response.json()
-        amt_hits = result["hits"]["total"]["value"]
-        logger.info(f"Got {amt_hits} hits")
-        if amt_hits > 100:
-            for i in range(100, amt_hits, 100):
-                logger.info(f"Getting hits from {i} to {i+100}")
-                q["from"] = i
-                time.sleep(0.11)  # Adding a wait time of 0.11 seconds
-                response = requests.get(url=url_str, params=q, headers=request_header)
-                if response.status_code == 200:
-                    responses.append(response)
-        logger.info(f"Got {len(responses)} responses")
-        return responses
-    else:
-        raise Exception(
-            f"Failed to retrieve full text search results - Status code { first_response.status }"
-        )
         
-async def edgar_full_text_search_async(q: dict) -> List[dict]:
+async def _edgar_full_text_search_async(q: dict) -> List[dict]:
     logger = logging.getLogger(__name__)
     responses = []
     url_str = ses.base_efts_url
@@ -115,46 +49,70 @@ async def edgar_full_text_search_async(q: dict) -> List[dict]:
         logger.info(f"Got {len(responses)} responses")
         return responses
         
-
-def get_hits_from_query(q: dict) -> List[EFTS_Response]:
-    logger = logging.getLogger(__name__)
-    responses = edgar_full_text_search(q)
-    efts_responses= [EFTS_Response(**response.json()) for response in responses]
-    return efts_responses
-
-def get_hits_from_queries(queries: List[dict]) -> List[EFTS_Hit]:
-    logger = logging.getLogger(__name__)
-
-    hits: List[EFTS_Hit] = []
-    for q in queries:
-        efts_responses = get_hits_from_query(q)
-        for efts_response in efts_responses:
-            hits.extend(efts_response.get_hits())
-    logger.info(f"Got {len(hits)} hits from {len(queries)} queries")
-    return hits
     
-    
-async def get_hits_from_query_async(q: dict) -> List[EFTS_Response]:
+async def _get_hits_from_query_async(q: dict) -> List[EFTS_Response]:
     logger = logging.getLogger(__name__)
-    responses = await edgar_full_text_search_async(q)
+    responses = await _edgar_full_text_search_async(q)
     efts_responses = [EFTS_Response(**response) for response in responses]
     return efts_responses
 
-async def get_hits_from_queries_async(queries: List[dict]) -> List[EFTS_Hit]:
+async def _get_hits_from_queries_async(queries: List[dict]) -> List[EFTS_Hit]:
     logger = logging.getLogger(__name__)
 
     hits: List[EFTS_Hit] = []
     for q in queries:
-        efts_responses = await get_hits_from_query_async(q)
+        efts_responses = await _get_hits_from_query_async(q)
         for efts_response in efts_responses:
             hits.extend(efts_response.get_hits())
     logger.info(f"Got {len(hits)} hits from {len(queries)} queries")
     
     return hits
 
+
+
+# MAIN METHODS
+async def get_raw_content_text(document_url: str) -> str:
+    logger = logging.getLogger("SEC_Filing")
+    content_html_str = None
+    try:
+
+        async with aiohttp.ClientSession(headers=ses.user_agent_header) as session:
+            async with session.get(document_url) as response:
+                if response.status == 200:
+                    content_html_str = await response.text()
+                    logger.info(f"Retrieved html content for : {document_url}")
+                else:
+                    logger.info(
+                        f"Failed to retrieve content from {document_url}, status code: {response.status} error: {response.reason}"
+                    )
+    except Exception as e:
+        logger.info(f"Error retrieving content from {document_url}: {e}")
+
+    return content_html_str
+
+async def get_raw_content_text_for(urls: List[str]) -> List[str]:
+    """Fetch raw content text for a list of URLs using the throttler."""
+    tasks = [lambda url=url: get_raw_content_text(url) for url in urls]  # Wrap calls in lambdas
+    return await ApiThrottler.throttle_requests(request_funcs=tasks)
+
+
+async def retrieve_submissions_for_entity_async(cik: str) -> dict:
+    url_str = ses.get_formatted_entity_submissions_url(cik=cik)
+    request_header = ses.user_agent_header
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url=url_str, headers=request_header) as response:
+            if response.status == 200:
+                result = await response.json()
+                return result
+            else:
+                raise Exception(
+                    f"Failed to retrieve submissions for entity {cik} - Status code {response.status}"
+                )
+
 async def get_entity_ciks_from_queries_async(queries: List[dict]) -> Set[str]:
     logger = logging.getLogger(__name__)
-    hits: List[EFTS_Hit] = await get_hits_from_queries_async(queries)
+    hits: List[EFTS_Hit] = await _get_hits_from_queries_async(queries)
     ciks = set([hit.get_source_cik() for hit in hits])
     logger.info(f"Got {len(ciks)} entities from {len(queries)} queries")
     return ciks
@@ -162,7 +120,7 @@ async def get_entity_ciks_from_queries_async(queries: List[dict]) -> Set[str]:
 
 async def get_query_result_async(q: dict) -> QueryResult:
     # Get EFTS Hits
-    hits = await get_hits_from_queries_async([q])   
+    hits = await _get_hits_from_queries_async([q])   
     # Transform to QueryHits
     query_hits = [QueryHit(url=hit.url,
                            score=hit.score,
