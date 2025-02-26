@@ -7,9 +7,9 @@ from typing import List, Literal, Optional
 from logging import Logger
 from openai import AsyncOpenAI
 from config import openai_settings
-from modeling.bitcoin_purchase.BitcoinPurchase import BitcoinPurchase
-from modeling.filing.SEC_Filing import SEC_Filing
-from modeling.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
+from models.bitcoin_purchase.BitcoinPurchase import BitcoinPurchase
+from models.filing.SEC_Filing import SEC_Filing
+from models.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
 
 
 class BitcoinEventType(str, Enum):

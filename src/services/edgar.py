@@ -1,7 +1,7 @@
 from typing import List, Set
 from config import sec_edgar_settings as ses
-from modeling.sec_edgar.efts.EFTS_Response import EFTS_Hit, EFTS_Response
-from modeling.sec_edgar.efts.query import *
+from models.sec_edgar.efts.EFTS_Response import EFTS_Hit, EFTS_Response
+from models.sec_edgar.efts.query import *
 import logging
 import aiohttp
 import asyncio

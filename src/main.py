@@ -16,8 +16,8 @@ from datetime import date
 
 from services.ai.press_release_extractor import PressReleaseExtractor
 from services.ai.extract_xbrl_tag import XBRL_Extractor
-from modeling.parsers.sec_10q.XBRL_Parser_10Q import Parser10QXBRL
-from modeling.filing.SEC_Filing import SEC_Filing
+from models.parsers.sec_10q.XBRL_Parser_10Q import Parser10QXBRL
+from models.filing.SEC_Filing import SEC_Filing
 
 
 setup_logging()

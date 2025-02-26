@@ -1,12 +1,12 @@
 import logging
 from datetime import date
 from data_repositories.public_entity_repo import PublicEntityRepository
-from modeling.sec_edgar.submissions.SubmissionsRequest import SubmissionsRequest
-from modeling.sec_edgar.efts.EFTS_Request import EFTS_Request, EFTS_Response
-from modeling.PublicEntity import PublicEntity
-from modeling.filing.sec_8k.Filing_8K import Filing_8K
-from modeling.filing.sec_424B5.Filing_424B5 import Filing_424B5
-from modeling.filing.sec_10q.Filing_10Q import Filing_10Q
+from models.sec_edgar.submissions.SubmissionsRequest import SubmissionsRequest
+from models.sec_edgar.efts.EFTS_Request import EFTS_Request, EFTS_Response
+from models.PublicEntity import PublicEntity
+from models.filing.sec_8k.Filing_8K import Filing_8K
+from models.filing.sec_424B5.Filing_424B5 import Filing_424B5
+from models.filing.sec_10q.Filing_10Q import Filing_10Q
 from pymongo.collection import Collection
 from queries import base_bitcoin_8k_company_query, base_bitcoin_balance_sheet_query
 from database import (
@@ -15,7 +15,7 @@ from database import (
 from util import ImportantDates
 from logging import Logger
 from services.edgar import get_entity_ciks_from_queries_async
-from modeling.sec_edgar.efts.query import Base_Bitcoin_Query
+from models.sec_edgar.efts.query import Base_Bitcoin_Query
 
 from services.throttler import ApiThrottler
 

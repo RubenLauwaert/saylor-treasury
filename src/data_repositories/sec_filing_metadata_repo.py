@@ -2,13 +2,13 @@ import logging
 from pymongo.collection import Collection
 from pymongo import UpdateOne, DeleteOne
 from typing import List, Optional
-from modeling.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
+from models.filing.SEC_Filing_Metadata import SEC_Filing_Metadata
 from database import public_entity_collection
 from data_repositories.public_entity_repo import PublicEntityRepository
 from datetime import date
 from logging import Logger
 
-from modeling import PublicEntity
+from models import PublicEntity
 
 
 class SEC_Filing_Metadata_Repository:

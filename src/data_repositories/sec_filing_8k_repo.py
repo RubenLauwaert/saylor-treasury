@@ -2,8 +2,8 @@ import logging
 from pymongo.collection import Collection
 from pymongo import UpdateOne, DeleteOne
 from typing import List, Optional
-from modeling.filing.sec_8k.Filing_8K import Filing_8K
-from modeling.PublicEntity import PublicEntity
+from models.filing.sec_8k.Filing_8K import Filing_8K
+from models.PublicEntity import PublicEntity
 from datetime import date
 from logging import Logger
 

@@ -4,7 +4,7 @@ import logging
 from pymongo.collection import Collection
 from pymongo import InsertOne, UpdateOne, DeleteOne
 from typing import List, Optional
-from modeling.PublicEntity import PublicEntity
+from models.PublicEntity import PublicEntity
 from logging import Logger
 
 class PublicEntityRepository:
