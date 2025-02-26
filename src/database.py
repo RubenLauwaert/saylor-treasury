@@ -7,6 +7,8 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from datetime import datetime, timezone
 
+from models.UtilDocument import UtilDocument
+
 client = MongoClient(mongosettings.uri)
 db = client[mongosettings.database_name]
 
@@ -25,18 +27,12 @@ def init_collections():
     
     # Ensure a single document exists in util_collection
     util_collection = db[mongosettings.util_coll_name]
-    default_util_doc = {
-        "_id": "util_values",
-        "last_updated_db": datetime.now(),
-        "last_updated": datetime.now(),
-        "cache_expiry": datetime.now(),
-        "version": 1.0
-    }
+    
 
     # Use upsert to insert the document only if it doesn't already exist
     util_collection.update_one(
         {"_id": "util_values"},
-        {"$setOnInsert": default_util_doc},
+        {"$setOnInsert": UtilDocument().model_dump()},
         upsert=True
     )
 

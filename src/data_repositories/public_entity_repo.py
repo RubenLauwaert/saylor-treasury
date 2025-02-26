@@ -6,14 +6,15 @@ from pymongo import InsertOne, UpdateOne, DeleteOne
 from typing import List, Optional
 from models.PublicEntity import PublicEntity
 from logging import Logger
+from database import public_entity_collection
 
 class PublicEntityRepository:
     
     logger: Logger
     
-    def __init__(self, collection: Collection):
+    def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.collection = collection
+        self.collection = public_entity_collection
 
     def get_all_entities(self) -> List[PublicEntity]:
         entities = self.collection.find()

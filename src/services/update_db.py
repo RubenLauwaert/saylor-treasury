@@ -1,5 +1,5 @@
 import logging
-from datetime import date
+from datetime import date, datetime
 from data_repositories.public_entity_repo import PublicEntityRepository
 from models.sec_edgar.submissions.SubmissionsRequest import SubmissionsRequest
 from models.sec_edgar.efts.EFTS_Request import EFTS_Request, EFTS_Response
@@ -12,6 +12,7 @@ from queries import base_bitcoin_8k_company_query, base_bitcoin_balance_sheet_qu
 from database import (
     public_entity_collection
 )
+from data_repositories.util_repo import UtilRepository
 from util import ImportantDates
 from logging import Logger
 from services.edgar import get_entity_ciks_from_queries_async
@@ -24,12 +25,14 @@ class DatabaseUpdater:
 
     # Database repositories
     entity_repo: PublicEntityRepository
+    util_repo: UtilRepository
     logger: Logger
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
         try:
-            self.entity_repo = PublicEntityRepository(public_entity_collection)
+            self.entity_repo = PublicEntityRepository()
+            self.util_repo = UtilRepository()
             self.logger.info("Initialized database repositories.")
         except Exception as e:
             self.logger.error(f"Error initializing database repositories: {e}")
@@ -40,10 +43,12 @@ class DatabaseUpdater:
             
             entities_w_ticker = self.entity_repo.get_entities_by_type("operating")
             self.logger.info(f"Found {len(entities_w_ticker)} entities with tickers.")
+            start_date = max(ImportantDates.MSTR_GENESIS_DATE.value, self.util_repo.get_last_synced_entities().date())
+            self.logger.info(f"Querying entities from start date : {start_date}")
             # Retrieve all public entities via Edgar API
-            search_query_1 = Base_Bitcoin_Query(forms=["8-K"]).set_start_date(ImportantDates.MSTR_GENESIS_DATE.value).to_dict()
-            search_query_2 = Base_Bitcoin_Query(forms=["10-Q"]).set_start_date(ImportantDates.MSTR_GENESIS_DATE.value).to_dict()
-            search_query_3 = Base_Bitcoin_Query(forms=["10-K"]).set_start_date(ImportantDates.MSTR_GENESIS_DATE.value).to_dict()
+            search_query_1 = Base_Bitcoin_Query(forms=["8-K"]).set_start_date(start_date).to_dict()
+            search_query_2 = Base_Bitcoin_Query(forms=["10-Q"]).set_start_date(start_date).to_dict()
+            search_query_3 = Base_Bitcoin_Query(forms=["10-K"]).set_start_date(start_date).to_dict()
 
             all_entity_ciks = await get_entity_ciks_from_queries_async([search_query_1,search_query_2, search_query_3])
             # Retrieve all entities in the database
@@ -57,6 +62,8 @@ class DatabaseUpdater:
             if len(new_entity_ciks) > 0:
                 new_entities = await PublicEntity.from_ciks(new_entity_ciks)
                 self.entity_repo.add_entities(new_entities)
+            # Update the last synced entities timestamp
+            self.util_repo.update_last_synced_entities(datetime.now())
             self.logger.info(f"Synced {len(new_entity_ciks)} new entities.")
         except Exception as e:
             self.logger.error(f"Error syncing bitcoin entities: {e}")
