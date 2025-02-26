@@ -5,7 +5,7 @@ from modeling.sec_edgar.efts.query import *
 import logging
 import aiohttp
 import asyncio
-from throttler import ApiThrottler
+from services.throttler import ApiThrottler
 
         
 # HELPER FUNCTIONS

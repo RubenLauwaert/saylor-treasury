@@ -81,7 +81,7 @@ async def main():
     
     await dbu.sync_bitcoin_entities()
     await dbu.sync_bitcoin_filings()
-    await dbu.parse_bitcoin_filings()
+    # await dbu.parse_bitcoin_filings()
     
 
     
