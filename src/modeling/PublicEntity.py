@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, date
+import pandas as pd
 from pydantic import BaseModel, Field
 from enum import Enum
 from typing import Any, Optional, List, Set
@@ -13,7 +14,7 @@ from modeling.filing.SEC_Form_Types import SEC_Form_Types
 from services.ai.bitcoin_events import *
 from services.ai.events_transformer import *
 from modeling.filing.Bitcoin_Filing import Bitcoin_Filing
-from util import ImportantDates
+from modeling.util import *
 from collections import defaultdict
 
 
@@ -39,7 +40,7 @@ class BitcoinTreasuryUpdateStatement(BaseModel):
                    file_type=filing.file_type)
 
 
-class BitcoinHoldingsStatement(BaseModel):
+class GenAI_BitcoinHoldingsStatement(BaseModel):
     
     # Data about the bitcoin holdings
     bitcoin_data: TotalBitcoinHoldings
@@ -52,7 +53,7 @@ class BitcoinHoldingsStatement(BaseModel):
     file_type: str
     
     @classmethod
-    def from_bitcoin_filing(cls, filing: Bitcoin_Filing) -> "BitcoinHoldingsStatement":
+    def from_bitcoin_filing(cls, filing: Bitcoin_Filing) -> "GenAI_BitcoinHoldingsStatement":
         return cls(bitcoin_data=filing.total_bitcoin_holdings,
                    filing_url=filing.url,
                    file_date=filing.file_date,
@@ -118,8 +119,10 @@ class PublicEntity(BaseModel):
     
     btc_treasury_update_statements: List[BitcoinTreasuryUpdateStatement] = Field(default=[], description="The list of Bitcoin treasury updates for the entity.")
     
-    btc_treasury_holdings_statements: List[BitcoinHoldingsStatement] = Field(default=[], description="The list of Bitcoin treasury holdings statements for the entity.")
+    btc_treasury_holdings_statements: List[GenAI_BitcoinHoldingsStatement] = Field(default=[], description="The list of Bitcoin treasury holdings statements for the entity.")
     
+    
+    official_btc_holding_statements: List[BitcoinHoldingsStatement] = Field(default=[], description="The list of official Bitcoin holdings statements for the entity, retrieved from XBRL 10Q filings")
 
     # Initializers
 
@@ -218,7 +221,7 @@ class PublicEntity(BaseModel):
         return self.bitcoin_filings
     
     def get_bitcoin_filings_by_form_type(self, form_type: str) -> List[Bitcoin_Filing]:
-        return [ filing for filing in self.bitcoin_filings if filing.form_type == form_type]
+        return [ filing for filing in self.bitcoin_filings if filing.file_type == form_type]
     
     # Updaters
 
@@ -282,7 +285,7 @@ class PublicEntity(BaseModel):
         return 0.0
     
     
-    def filter_btc_holdings_statements(self, holding_statements: List[BitcoinHoldingsStatement]) -> List[BitcoinHoldingsStatement]:
+    def filter_btc_holdings_statements(self, holding_statements: List[GenAI_BitcoinHoldingsStatement]) -> List[GenAI_BitcoinHoldingsStatement]:
         
         filtered_statements = []
         
@@ -306,7 +309,7 @@ class PublicEntity(BaseModel):
                 
         return filtered_statements
     
-    def filter_btc_treasury_updates(self, treasury_updates: List[BitcoinTreasuryUpdateStatement], holding_statements: List[BitcoinHoldingsStatement]) -> List[BitcoinTreasuryUpdateStatement]:  
+    def filter_btc_treasury_updates(self, treasury_updates: List[BitcoinTreasuryUpdateStatement], holding_statements: List[GenAI_BitcoinHoldingsStatement]) -> List[BitcoinTreasuryUpdateStatement]:  
         
         filtered_update_statements = []
         # Sort the filtered_holdings by date
@@ -331,7 +334,7 @@ class PublicEntity(BaseModel):
         
         # Filtered bitcoin treasury holdings statements
         raw_btc_treasury_holdings_statements = [
-            BitcoinHoldingsStatement.from_bitcoin_filing(filing) for filing in self.bitcoin_filings if filing.has_total_bitcoin_holdings
+            GenAI_BitcoinHoldingsStatement.from_bitcoin_filing(filing) for filing in self.bitcoin_filings if filing.has_total_bitcoin_holdings
         ]
         filtered_btc_treasury_holdings_statements = self.filter_btc_holdings_statements(raw_btc_treasury_holdings_statements)
         self.btc_treasury_holdings_statements = filtered_btc_treasury_holdings_statements
@@ -369,7 +372,7 @@ class PublicEntity(BaseModel):
         urls = [hit.url for hit in hits]
         dates = [hit.file_date for hit in hits]
         logger.info(dates)
-        filings_raw = await SEC_Filing.get_html_content_for(urls)
+        filings_raw = await SEC_Filing.get_raw_content_text_for(urls)
         parsed_content = [parse_sec_xml(filing_raw) for filing_raw in filings_raw]
         filtered_parsed_content = [entry for entry in parsed_content[2] if "MICROSTRATEGY" in entry["nameOfIssuer"]]
         # Convert to DataFrame
@@ -378,3 +381,27 @@ class PublicEntity(BaseModel):
         logger.info(df)
        
         return self
+    
+    
+    async def extract_official_btc_holding_statements(self) -> "PublicEntity":
+        
+        # Retrieve all the Bitcoin holdings statements from latest 10-Q filings
+        filings_10q = [filing for filing in self.get_bitcoin_filings_by_form_type("10-Q") if filing.parsed_official_10q_statements == False]
+        
+ 
+        
+        updated_bitcoin_filings = await Bitcoin_Filing.extract_official_bitcoin_holdings_for(filings_10q, ticker=self.ticker)
+        all_holding_statements = [statement for filing in updated_bitcoin_filings for statement in filing.official_bitcoin_holdings]
+        all_fair_value_statements = [statement for filing in updated_bitcoin_filings for statement in filing.official_fair_value_statements]
+        
+        # Remove duplicates
+        unique_holding_statements = { (statement.date, statement.amount): statement for statement in all_holding_statements }.values()
+        unique_fair_value_statements = { (statement.date, statement.amount): statement for statement in all_fair_value_statements }.values()
+        
+        # Sort the holding statements by the date field
+        sorted_holding_statements = sorted(unique_holding_statements, key=lambda x: datetime.fromisoformat(x.date))
+        sorted_fair_value_statements = sorted(unique_fair_value_statements, key=lambda x: datetime.fromisoformat(x.date))
+        
+        return self
+   
+        

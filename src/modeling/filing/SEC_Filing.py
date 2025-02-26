@@ -98,7 +98,7 @@ class SEC_Filing(BaseModel):
         return content_html_str
     
     @staticmethod
-    async def get_html_content_for(urls: List[str]) -> List[str]:
+    async def get_raw_content_text_for(urls: List[str]) -> List[str]:
         raw_contents = []
         batch_size = 10  # Number of requests per batch
         delay = 1.1  # Delay in seconds between batches

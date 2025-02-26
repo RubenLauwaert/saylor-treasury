@@ -5,11 +5,13 @@ from typing import Optional, List, Literal
 from modeling.filing.SEC_Filing import SEC_Filing
 from services.ai.bitcoin_events import *
 from services.ai.events_transformer import *
+from modeling.parsers.sec_10q.XBRL_Parser_10Q import Parser10QXBRL
 from modeling.sec_edgar.efts.query import QueryHit
 from modeling.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
 
 
 from config import openai_settings as ai_settings
+from modeling.util import BitcoinHoldingsStatement, BitcoinFairValueStatement
 
 
 
@@ -30,6 +32,7 @@ class Bitcoin_Filing(BaseModel):
     has_raw_content: bool = Field(default=False)
     has_bitcoin_treasury_update: bool = Field(default=False)
     has_total_bitcoin_holdings: bool = Field(default=False)
+    parsed_official_10q_statements: bool = Field(default=False)
     
     # Raw content
     raw_text: str = Field(default="")
@@ -43,6 +46,8 @@ class Bitcoin_Filing(BaseModel):
         description="The Total Bitcoin Holdings data for the entity."
     )
     
+    official_bitcoin_holdings: List[BitcoinHoldingsStatement] = Field(default=[], description="The official bitcoin holdings statement for the entity. (only for 10Q's)")
+    official_fair_value_statements: List[BitcoinFairValueStatement] = Field(default=[], description="The official bitcoin fair value statements for the entity. (only for 10Q's)")
     # Getters
     def get_bitcoin_acquisition_events(self) -> List[BitcoinEvent]:
         acquisition_events = [
@@ -136,6 +141,23 @@ class Bitcoin_Filing(BaseModel):
                         logger.info(f"Transformed bitcoin purchases for filing {self.url}")
         except Exception as e:
             logger.error(f"Failed to transform bitcoin events for filing {self.url}: {e}")
+            
+            
+    async def extract_official_bitcoin_holdings(self, ticker: str) -> "Bitcoin_Filing":
+        logger = logging.getLogger(self.__class__.__name__)
+        try:
+            if self.file_type == "10-Q" and self.parsed_official_10q_statements == False:
+                # Extract official bitcoin holdings
+                xbrl_url = self.url.replace(".htm", "_htm.xml")
+                xbrl_content = await SEC_Filing.get_raw_content_text(xbrl_url)
+                parsed_content = Parser10QXBRL(xbrl_string=xbrl_content, ticker=ticker)
+                self.official_bitcoin_holdings = await parsed_content.extract_bitcoin_holdings()
+                self.official_fair_value_statements = await parsed_content.extract_bitcoin_fair_value()
+                self.parsed_official_10q_statements = True
+        except Exception as e:
+            logger.error(f"Failed to extract official bitcoin holdings for filing {self.url}: {e}")
+        return self
+        
     
     
     @staticmethod
@@ -200,6 +222,22 @@ class Bitcoin_Filing(BaseModel):
                     await asyncio.sleep(delay)  # Wait for 1 second between batches
 
             return bitcoin_filings
+        
+        
+    @staticmethod
+    async def extract_official_bitcoin_holdings_for(bitcoin_filings: List["Bitcoin_Filing"], ticker: str) -> List["Bitcoin_Filing"]:
+         
+        batch_size = 10  # Number of requests per batch
+        delay = 1.1  # Delay in seconds between batches
+        for i in range(0, len(bitcoin_filings), batch_size):
+            batch = bitcoin_filings[i:i + batch_size]
+            await asyncio.gather(*(filing.extract_official_bitcoin_holdings(ticker) for filing in batch))
+            if i + batch_size < len(bitcoin_filings):
+                await asyncio.sleep(delay)  # Wait for 1 second between batches
+
+        return bitcoin_filings
+        
+        
     
     def get_bitcoin_total_holdings(self) -> Optional[TotalBitcoinHoldings]:
         return self.total_bitcoin_holdings

@@ -16,6 +16,7 @@ from util import ImportantDates
 from logging import Logger
 from services.edgar import get_entity_ciks_from_queries_async
 from modeling.sec_edgar.efts.query import Base_Bitcoin_Query
+from services.throttler import ApiThrottler
 
 
 class DatabaseUpdater:
@@ -65,11 +66,30 @@ class DatabaseUpdater:
         # Only get entities with tickers
         public_entities = self.entity_repo.get_entities_w_existing_ticker()
         
-        for entity in public_entities:
-            await entity.load_new_bitcoin_filings()
-            self.logger.info(f"Synced new bitcoin filings for entity: {entity.name}")
+        # Load the bitcoin filing hits for the entities
+        tasks = [lambda entity=entity: entity.load_new_bitcoin_filings() for entity in public_entities]
+        public_entities = await ApiThrottler.throttle_requests(request_funcs=tasks)
+        
+        # for entity in public_entities:
+        #     # Load the bitcoin filing hits
+        #     await entity.load_new_bitcoin_filings()
+        #     self.logger.info(f"Synced new bitcoin filings for entity: {entity.name}")
+        
+        
 
         self.entity_repo.update_entities(public_entities)
+        
+    async def parse_bitcoin_filings(self):
+        # Only get entities with tickers
+        public_entities = self.entity_repo.get_entities_w_existing_ticker()
+        
+        # Extract official btc holding statements from 10Q bitcoin filings
+        tasks = [lambda entity=entity: entity.extract_official_btc_holding_statements() for entity in public_entities]
+        public_entities = await ApiThrottler.throttle_requests(request_funcs=tasks)
+        
+        self.entity_repo.update_entities(public_entities)
+        
+
             
 
 
