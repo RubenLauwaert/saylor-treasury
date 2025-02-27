@@ -27,9 +27,8 @@ entity_repo = PublicEntityRepository()
 async def main():
     # awai  t dbu.sync_bitcoin_entities()
     
-    mining_entities = entity_repo.get_bitcoin_mining_entities()
-    print([entity.ticker for entity in mining_entities])
-
+    entity = entity_repo.get_entity_by_ticker("SMLR")
+    await entity_repo.update_bitcoin_data_for(entity)
     # await dbu.parse_bitcoin_filings()
     
 

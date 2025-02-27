@@ -6,6 +6,7 @@ import logging
 import aiohttp
 import asyncio
 from services.throttler import ApiThrottler
+from typing import Tuple
 
         
 # HELPER FUNCTIONS
@@ -68,19 +69,21 @@ async def _get_hits_from_queries_async(queries: List[dict]) -> List[EFTS_Hit]:
     
     return hits
 
-
+URL = str
+CONTENT = str 
+ContentResult = Tuple[URL, CONTENT]
 
 # MAIN METHODS
-async def get_raw_content_text(document_url: str) -> str:
-    logger = logging.getLogger("SEC_Filing")
-    content_html_str = None
+async def get_raw_content_text(document_url: str) -> ContentResult:
+    logger = logging.getLogger(__name__)
+    content_html_str = ""
     try:
 
         async with aiohttp.ClientSession(headers=ses.user_agent_header) as session:
             async with session.get(document_url) as response:
                 if response.status == 200:
                     content_html_str = await response.text()
-                    logger.info(f"Retrieved html content for : {document_url}")
+                    logger.info(f"Retrieved text content for : {document_url}")
                 else:
                     logger.info(
                         f"Failed to retrieve content from {document_url}, status code: {response.status} error: {response.reason}"
@@ -88,9 +91,9 @@ async def get_raw_content_text(document_url: str) -> str:
     except Exception as e:
         logger.info(f"Error retrieving content from {document_url}: {e}")
 
-    return content_html_str
+    return (document_url, content_html_str)
 
-async def get_raw_content_text_for(urls: List[str]) -> List[str]:
+async def get_raw_content_text_for(urls: List[str]) -> List[ContentResult]:
     """Fetch raw content text for a list of URLs using the throttler."""
     tasks = [lambda url=url: get_raw_content_text(url) for url in urls]  # Wrap calls in lambdas
     return await ApiThrottler.throttle_requests(request_funcs=tasks)

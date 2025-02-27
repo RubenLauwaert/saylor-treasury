@@ -19,7 +19,7 @@ from collections import defaultdict
 
 from models.BitcoinData import BitcoinData
 from models.sec_edgar.efts.query import Base_Bitcoin_Query
-from services.edgar import get_query_result_async, get_query_results_async
+from services.edgar import get_query_result_async, get_query_results_async, get_raw_content_text_for
 from util import ImportantDates
 
 
@@ -209,6 +209,10 @@ class PublicEntity(BaseModel):
             self.bitcoin_entity_tags.append(tag)
         if self.are_tags_identified == False:
             self.are_tags_identified = True
+            
+    def reset_bitcoin_filings(self):
+        self.bitcoin_filings = []
+        self.last_updated_bitcoin_filings = datetime.min
     
     
     # Updaters
@@ -260,15 +264,29 @@ class PublicEntity(BaseModel):
     
     # Updates the bitcoin data for the entity
     
-    async def update_bitcoin_data(self) -> "PublicEntity":
+    async def extract_official_bitcoin_data_tenqs_xbrl(self) -> "PublicEntity":
+        from models.parsers.sec_10q.XBRL_Parser_10Q import Parser10QXBRL
+        from services.throttler import ApiThrottler
+        # Get official bitcoin holding statements for public entity
+        entity_tenqs = self.get_bitcoin_filings_by_form_type(form_type="10-Q")
+        unparsed_tenqs = [ tenq for tenq in entity_tenqs if not tenq.did_parse_xbrl]
+        # urls necessary for retrieving xbrl content 
+        xbrl_urls = [ tenq.url.replace(".htm","_htm.xml") for tenq in unparsed_tenqs]
+        raw_xbrl_contents = await get_raw_content_text_for(xbrl_urls)
+        raw_xbrl_contents = [content for content in raw_xbrl_contents if content[1] != ""]
+        # parsed xbrl contents
+        parsed_xbrl_contents = [Parser10QXBRL(xbrl_url=xbrl_content[0],xbrl_string=xbrl_content[1], ticker=self.ticker) for xbrl_content in raw_xbrl_contents]
+        # Extract bitcoin holdings from parsed xbrl content
+        tasks_holding_statements = [lambda parsed_content=parsed_content: parsed_content.extract_bitcoin_holdings() for parsed_content in parsed_xbrl_contents]
+        holding_results = await ApiThrottler.throttle_openai_requests(request_funcs=tasks_holding_statements)
         
-        # Set the entity tag 
-        if self.bitcoin_data.is_tag_identified == False:
-            self.bitcoin_data.entity_tag = await self.identify_bitcoin_tags()
+        # Remove duplicates from holding statements
+
+
+        # TODO Extract Fair Value Statements for public entity 
         
-    
-    
-    
+        return self
+        
     async def identify_bitcoin_tags(self) -> "PublicEntity":
         
         # Identify miners and crypto service providers

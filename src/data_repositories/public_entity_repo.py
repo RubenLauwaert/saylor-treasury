@@ -92,9 +92,15 @@ class PublicEntityRepository:
     
     def get_bitcoin_mining_entities(self) -> List[PublicEntity]:
         entities = self.collection.find({"bitcoin_entity_tags": {'$in': [BitcoinEntityTag.MINER.value]}, "ticker": {"$exists": True, "$ne": None}})
-   
         self.logger.info(
             f"Retrieved {self.collection.count_documents({'bitcoin_entity_tags': {'$in': [BitcoinEntityTag.MINER.value]}, 'ticker': {'$exists': True, '$ne': None}})} Bitcoin mining entities "
+        )
+        return [PublicEntity(**entity) for entity in entities]
+
+    def get_active_bitcoin_treasury_entities(self) -> List[PublicEntity]:
+        entities = self.collection.find({"bitcoin_entity_tags": {'$in': [BitcoinEntityTag.ACTIVE_BTC_STRATEGY.value]}, "ticker": {"$exists": True, "$ne": None}})
+        self.logger.info(
+            f"Retrieved {self.collection.count_documents({'bitcoin_entity_tags': {'$in': [BitcoinEntityTag.ACTIVE_BTC_STRATEGY.value]}, 'ticker': {'$exists': True, '$ne': None}})} active Bitcoin treasury entities "
         )
         return [PublicEntity(**entity) for entity in entities]
     
@@ -143,6 +149,19 @@ class PublicEntityRepository:
             self.logger.error(f"Error syncing bitcoin filings for entity: {public_entity.name}")
             return False
         
+    def reset_bitcoin_filings(self) -> bool:
+
+        try:
+            entities = self.get_entities_w_existing_ticker()
+            for entity in entities:
+                entity.reset_bitcoin_filings()
+            self.add_entities(entities)
+            self.logger.info(f"Reset bitcoin filings for all entities")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error resetting bitcoin filings for all entities: {e}")
+            return False
+        
         
     async def identify_bitcoin_tags_for(self,public_entity: PublicEntity) -> bool:
         
@@ -154,3 +173,18 @@ class PublicEntityRepository:
         except Exception as e:
             self.logger.error(f"Error identifying bitcoin tags for entity: {public_entity.name} : {e}")
             return False
+        
+        
+    async def update_bitcoin_data_for(self,public_entity: PublicEntity) -> bool:
+        
+        try:
+            updated_entity = await public_entity.extract_official_bitcoin_data_tenqs_xbrl()
+            self.add_entity(updated_entity)
+            self.logger.info(f"Updated bitcoin data for entity: {public_entity.name}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating bitcoin data for entity: {public_entity.name} : {e}")
+            return False
+        
+        
+

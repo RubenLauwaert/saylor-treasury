@@ -27,13 +27,14 @@ class Parser10QXBRL:
     xbrldi_ns = '{http://xbrl.org/2006/xbrldi}'
     
     
-    def __init__(self, xbrl_string: str, ticker: str):
+    def __init__(self, xbrl_url: str, xbrl_string: str, ticker: str):
         """
         Initialize the parser with an XBRL string.
         """
         self.tree = ET.ElementTree(ET.fromstring(xbrl_string))
         self.root = self.tree.getroot()
         self.ticker = ticker
+        self.xbrl_url = xbrl_url
         self.namespaces: dict[str,str]= extract_namespaces(xbrl_string)
         self.entity_namespace = self.namespaces.get(self.ticker.lower())
         self.bitcoin_tag_keywords: List[str] = ["Bitcoin", "Crypto", "BTC", "DigitalAsset", "IntangibleAsset"]
@@ -111,7 +112,7 @@ class Parser10QXBRL:
     
     
     
-    async def extract_bitcoin_holdings(self) -> List[BitcoinHoldingsStatement]:
+    async def extract_bitcoin_holdings(self) -> tuple[str, List[BitcoinHoldingsStatement]]:
         """
         Extract Bitcoin holdings from the XBRL file.
         """
@@ -131,12 +132,32 @@ class Parser10QXBRL:
                 context_id = element.attrib.get("contextRef")
                 context = self._get_context_for(context_id)
                 unit_id = element.attrib.get("unitRef")
-                
+                decimals = element.attrib.get("decimals")
                 # Bitcoin holding statement fields
-                value = float(element.text)
                 date = context.get("date")
                 unit = "USD" if "usd" in unit_id.lower() else "BTC"
-                
+                # Value can be tricky as it can be denominated in USD or BTC or decimals fucking up the BTC amount
+                value = 0
+                if decimals is not None:
+                    if decimals == "0" or decimals == "INF" or unit == "USD":
+                        value = float(element.text) if element.text is not None else 0
+                    # Now we have a "BTC" unit and decimals, now we need to be carful
+                    else:
+                        # First check if the decimal is an int
+                        try:
+                            decimals = int(decimals)
+                            # In this case, the btc holdings is mostly reported as a float, ex. 7.2 , so the decimals would give 1 , we can skip this case
+                            if decimals >= 0:
+                                value = float(element.text) if element.text is not None else 0
+                            # In the case it is negative, we need to multiply the value by 10^decimals, ex. 38000, decimals=-3 --> value = 38 , 
+                            # This is common for holders that have a low amount of bitcoin and want to report it as an integer
+                            else:
+                                value = float(element.text) * 10**decimals if element.text is not None else 0
+                        except:
+                            decimals = 0
+                else:
+                    value = float(element.text) if element.text is not None else 0
+                  
                 bitcoin_holding_statement = BitcoinHoldingsStatement(amount=value, date=date, unit=unit, tag=ai_predicted_tag.split('}')[1])
                 
                 # Filter out holdings for other cryptocurrencies (Coinbase for example)
@@ -147,7 +168,7 @@ class Parser10QXBRL:
                 else:
                     bitcoin_holdings.append(bitcoin_holding_statement)
         
-        return bitcoin_holdings
+        return (self.xbrl_url, bitcoin_holdings)
     
     async def extract_bitcoin_fair_value(self) -> List[BitcoinFairValueStatement]:
         """
