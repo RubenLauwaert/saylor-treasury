@@ -65,8 +65,25 @@ class DatabaseUpdater:
             # Update the last synced entities timestamp
             self.util_repo.update_last_synced_entities(datetime.now())
             self.logger.info(f"Synced {len(new_entity_ciks)} new entities.")
+            
+            # After initializing db with the entities , append bitcoin entity tags to the entities
+            await self.identify_bitcoin_tags()
+            
         except Exception as e:
             self.logger.error(f"Error syncing bitcoin entities: {e}")
+            
+            
+    async def identify_bitcoin_tags(self):
+        
+        # Get entities with tickers whose tag has not yet been set
+        entities = self.entity_repo.get_entities_w_existing_ticker()
+        entities_to_update = [entity for entity in entities if entity.are_tags_identified == False]
+        
+        # Identify the tags for the entities 
+        tasks = [lambda entity=entity: self.entity_repo.identify_bitcoin_tags_for(entity) for entity in entities_to_update]
+        await ApiThrottler.throttle_requests(request_funcs=tasks)
+        
+        
             
             
     async def sync_bitcoin_filings(self):
@@ -75,17 +92,9 @@ class DatabaseUpdater:
         public_entities = self.entity_repo.get_entities_w_existing_ticker()
         
         # Load the bitcoin filing hits for the entities
-        tasks = [lambda entity=entity: entity.load_new_bitcoin_filings() for entity in public_entities]
+        tasks = [lambda entity=entity: self.entity_repo.update_bitcoin_filings_for(entity) for entity in public_entities]
         public_entities = await ApiThrottler.throttle_requests(request_funcs=tasks)
         
-        # for entity in public_entities:
-        #     # Load the bitcoin filing hits
-        #     await entity.load_new_bitcoin_filings()
-        #     self.logger.info(f"Synced new bitcoin filings for entity: {entity.name}")
-        
-        
-
-        self.entity_repo.update_entities(public_entities)
         
     async def parse_bitcoin_filings(self):
         # Only get entities with tickers

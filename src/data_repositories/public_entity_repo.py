@@ -7,6 +7,7 @@ from typing import List, Optional
 from models.PublicEntity import PublicEntity
 from logging import Logger
 from database import public_entity_collection
+from models.util import BitcoinEntityTag
 
 class PublicEntityRepository:
     
@@ -90,9 +91,10 @@ class PublicEntityRepository:
         return result.deleted_count
     
     def get_bitcoin_mining_entities(self) -> List[PublicEntity]:
-        entities = self.collection.find({"sic": "6199", "ticker": {"$exists": True, "$ne": None}, "entity_type": "operating"})
+        entities = self.collection.find({"bitcoin_entity_tags": {'$in': [BitcoinEntityTag.MINER.value]}, "ticker": {"$exists": True, "$ne": None}})
+   
         self.logger.info(
-            f"Retrieved {self.collection.count_documents({'sic': '6199', 'ticker': {'$exists': True, '$ne': None}})} Bitcoin mining entities with a ticker from the collection."
+            f"Retrieved {self.collection.count_documents({'bitcoin_entity_tags': {'$in': [BitcoinEntityTag.MINER.value]}, 'ticker': {'$exists': True, '$ne': None}})} Bitcoin mining entities "
         )
         return [PublicEntity(**entity) for entity in entities]
     
@@ -128,3 +130,27 @@ class PublicEntityRepository:
             f"Retrieved {self.collection.count_documents({'filing_metadatas': {'$elemMatch': {'form': '6-K'}}, 'filing_metadatas.form': {'$ne': '8-K'}})} foreign entities with form 6-K and no form 8-K from the collection."
         )
         return [PublicEntity(**entity) for entity in entities]
+    
+    
+    async def update_bitcoin_filings_for(self, public_entity: PublicEntity) -> bool:
+        
+        try:
+            updated_entity = await public_entity.update_bitcoin_filings()
+            self.add_entity(updated_entity)
+            self.logger.info(f"Synced new bitcoin filings for entity: {public_entity.name}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error syncing bitcoin filings for entity: {public_entity.name}")
+            return False
+        
+        
+    async def identify_bitcoin_tags_for(self,public_entity: PublicEntity) -> bool:
+        
+        try:
+            updated_entity = await public_entity.identify_bitcoin_tags()
+            self.add_entity(updated_entity)
+            self.logger.info(f"Identified bitcoin tags for entity: {public_entity.name}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error identifying bitcoin tags for entity: {public_entity.name} : {e}")
+            return False

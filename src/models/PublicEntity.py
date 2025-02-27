@@ -17,51 +17,10 @@ from models.filing.Bitcoin_Filing import Bitcoin_Filing
 from models.util import *
 from collections import defaultdict
 
-
-
-class BitcoinTreasuryUpdateStatement(BaseModel):
-    # Data about the bitcoin treasury update
-    bitcoin_treasury_update: BitcoinTreasuryUpdate
-    
-    # Data about the filing where the statement was found
-    filing_url: str
-    file_date: str
-    accession_number: str
-    form_type: str
-    file_type: str
-    
-    @classmethod
-    def from_bitcoin_filing(cls, filing: Bitcoin_Filing) -> "BitcoinTreasuryUpdateStatement":
-        return cls(bitcoin_treasury_update=filing.bitcoin_treasury_update,
-                   filing_url=filing.url,
-                   file_date=filing.file_date,
-                   accession_number=filing.accession_number,
-                   form_type=filing.form_type,
-                   file_type=filing.file_type)
-
-
-class GenAI_BitcoinHoldingsStatement(BaseModel):
-    
-    # Data about the bitcoin holdings
-    bitcoin_data: TotalBitcoinHoldings
-    
-    # Data about the filing where the statement was found
-    filing_url: str
-    file_date: str
-    accession_number: str
-    form_type: str
-    file_type: str
-    
-    @classmethod
-    def from_bitcoin_filing(cls, filing: Bitcoin_Filing) -> "GenAI_BitcoinHoldingsStatement":
-        return cls(bitcoin_data=filing.total_bitcoin_holdings,
-                   filing_url=filing.url,
-                   file_date=filing.file_date,
-                   accession_number=filing.accession_number,
-                   form_type=filing.form_type,
-                   file_type=filing.file_type)
-    
-    
+from models.BitcoinData import BitcoinData
+from models.sec_edgar.efts.query import Base_Bitcoin_Query
+from services.edgar import get_query_result_async, get_query_results_async
+from util import ImportantDates
 
 
 class PublicEntity(BaseModel):
@@ -117,12 +76,28 @@ class PublicEntity(BaseModel):
         description="The total amount of Bitcoin held by the entity.",
     )
     
-    btc_treasury_update_statements: List[BitcoinTreasuryUpdateStatement] = Field(default=[], description="The list of Bitcoin treasury updates for the entity.")
+    btc_treasury_update_statements: List[GenAI_BitcoinTreasuryUpdateStatement] = Field(default=[], description="The list of Bitcoin treasury updates for the entity.")
     
     btc_treasury_holdings_statements: List[GenAI_BitcoinHoldingsStatement] = Field(default=[], description="The list of Bitcoin treasury holdings statements for the entity.")
     
     
     official_btc_holding_statements: List[BitcoinHoldingsStatement] = Field(default=[], description="The list of official Bitcoin holdings statements for the entity, retrieved from XBRL 10Q filings")
+    
+    # Bitcoin entity tag
+    
+    # Tag of the bitcoin enitity
+    bitcoin_entity_tags: List[BitcoinEntityTag] = Field(default=[BitcoinEntityTag.MENTIONED_BTC_IN_FILING], description="The tag of the bitcoin entity.")
+    are_tags_identified: bool = Field(default=False, description="Whether the bitcoin entity tag has been identified.")
+    
+    # Bitcoin data
+    
+    bitcoin_data: BitcoinData = Field(default=BitcoinData(), description="The data about the Bitcoin entity.")
+
+
+    # Last updated timestamps
+    last_updated_bitcoin_filings: datetime = Field(default=datetime.min, description="The timestamp of the last update of the Bitcoin filings. (SEC filings with the word 'bitcoin')")
+    last_updated_submissions: datetime = Field(default=datetime.min, description="The timestamp of the last update of the submissions for this entity.")
+
 
     # Initializers
 
@@ -156,6 +131,8 @@ class PublicEntity(BaseModel):
         filing_metadatas = SubmissionsResponse.from_dict(
             submission_response
         ).filing_metadatas
+        
+        last_updated_submissions = datetime.now()
 
         public_entity = cls(
             name=name,
@@ -169,6 +146,7 @@ class PublicEntity(BaseModel):
             category=category,
             phone=phone,
             filing_metadatas=filing_metadatas,
+            last_updated_submissions=last_updated_submissions,
         )
         logger.info(
             f"Retrieved public entity {public_entity.name} with ticker {public_entity.ticker} and entity type {public_entity.entity_type}"
@@ -223,23 +201,38 @@ class PublicEntity(BaseModel):
     def get_bitcoin_filings_by_form_type(self, form_type: str) -> List[Bitcoin_Filing]:
         return [ filing for filing in self.bitcoin_filings if filing.file_type == form_type]
     
+    
+    # Setters
+    
+    def append_bitcoin_entity_tag(self, tag: BitcoinEntityTag):
+        if tag not in self.bitcoin_entity_tags:
+            self.bitcoin_entity_tags.append(tag)
+        if self.are_tags_identified == False:
+            self.are_tags_identified = True
+    
+    
     # Updaters
-
-    async def load_new_bitcoin_filings(self) -> "PublicEntity":
+    
+    
+    
+    # Updates the list of Bitcoin filings for the entity
+    async def update_bitcoin_filings(self) -> "PublicEntity":
         
         from models.sec_edgar.efts.query import Base_Bitcoin_Query
         from services.edgar import get_query_result_async
         
         # Logger
         logger = logging.getLogger(self.__class__.__name__)
+        
+        start_date = max(ImportantDates.BTC_GENESIS_DATE.value, self.last_updated_bitcoin_filings.date())
 
         # Retrieve QueryResult (QueryHits) for bitcoin query (keyword "bitcoin")
-        base_bitcoin_query = Base_Bitcoin_Query(ciks=self.cik).model_dump(
+        base_bitcoin_query = Base_Bitcoin_Query(ciks=self.cik, startdt=start_date.isoformat()).model_dump(
             exclude_none=True
         )
         query_result = await get_query_result_async(q=base_bitcoin_query)
         bitcoin_filing_hits = query_result.hits
-        # Only store hits with form type 8-K, 10-Q or 10-K
+        # Only store hits with accepted form types
         filtered_bitcoin_filing_hits = [
             hit
             for hit in bitcoin_filing_hits
@@ -257,151 +250,194 @@ class PublicEntity(BaseModel):
             not in [bf.url for bf in self.bitcoin_filings]
         ]
         
-        # # Load the html content for the new bitcoin filings
-        # new_bitcoin_filings_w_content = await Bitcoin_Filing.load_html_content_for(new_bitcoin_filings)
-        
-        # # Extract the bitcoin events for the new bitcoin filings (adhere to rate limit)
-        # new_bitcoin_filings_w_events = await Bitcoin_Filing.extract_bitcoin_events_for(new_bitcoin_filings_w_content)
-        
-        # # Parse the extracted events into Bitcoin treasury statuses
-        # new_bitcoin_filings_w_treasury_stats = await Bitcoin_Filing.parse_bitcoin_events_for(new_bitcoin_filings_w_events)
-        
-        # # Remove the raw text from the bitcoin filing to save space in the database
-        # for filing in new_bitcoin_filings_w_treasury_stats:
-        #     filing.raw_text = ""
-        
         # Add the new bitcoin filings to the entity
-        self.bitcoin_filings.extend(all_bitcoin_filings)
+        self.bitcoin_filings.extend(new_bitcoin_filings)
+        self.last_updated_bitcoin_filings = datetime.now()
  
         return self
     
     
     
-    def get_btc_amt_in_treasury(self) -> float:
-        # Return the latest and most accurate bitcoin holdings
-        for filing in sorted(self.bitcoin_filings, key=lambda x: datetime.fromisoformat(x.file_date), reverse=True):
-            if filing.has_total_bitcoin_holdings:
-                return filing.total_bitcoin_holdings.total_bitcoin_holdings
-        return 0.0
+    # Updates the bitcoin data for the entity
+    
+    async def update_bitcoin_data(self) -> "PublicEntity":
+        
+        # Set the entity tag 
+        if self.bitcoin_data.is_tag_identified == False:
+            self.bitcoin_data.entity_tag = await self.identify_bitcoin_tags()
+        
     
     
-    def filter_btc_holdings_statements(self, holding_statements: List[GenAI_BitcoinHoldingsStatement]) -> List[GenAI_BitcoinHoldingsStatement]:
+    
+    async def identify_bitcoin_tags(self) -> "PublicEntity":
         
-        filtered_statements = []
-        
-        # Group holding statements by accession number
-        grouped_statements_by_accn = defaultdict(list)
-        for statement in holding_statements:
-            grouped_statements_by_accn[statement.accession_number].append(statement)
-        
-        # Group holding statements by btc holdings
-        grouped_statements_by_holdings = defaultdict(list)
-        for statement in holding_statements:
-            grouped_statements_by_holdings[int(statement.bitcoin_data.total_bitcoin_holdings)].append(statement)
-        
-        for statements in grouped_statements_by_holdings.values():
-            if len(statements) == 1:
-                filtered_statements.extend(statements)
-            elif len(statements) > 1:
-                # Get the earliest statement available
-                earliest_statement = sorted(statements, key=lambda x: datetime.fromisoformat(x.file_date))[0]
-                filtered_statements.append(earliest_statement)
+        # Identify miners and crypto service providers
+        if self.sic == "6199" and self.ticker != "MSTR":
+            bitcoin_mining_query = Base_Bitcoin_Query(ciks=self.cik, q='bitcoin NEAR(2) mined').model_dump(exclude_none=True)
+            query_result = await get_query_result_async(q=bitcoin_mining_query)
+            if len(query_result.hits) > 0:
+                self.append_bitcoin_entity_tag(BitcoinEntityTag.MINER)
+            else:
+                self.append_bitcoin_entity_tag(BitcoinEntityTag.CRYPTO_SERVICE_PROVIDER)          
+
+        # Identify bitcoin funds / spot bitcoin etfs
+        if self.sic == "6221":
+            # Spot bitcoin etfs
+            if self.ticker in SpotBitcoinETFs:
+                self.append_bitcoin_entity_tag(BitcoinEntityTag.SPOT_BITCOIN_ETF)
+            # Grayscale trusts
+            elif self.ticker in GrayscaleTrusts:
+                self.append_bitcoin_entity_tag(BitcoinEntityTag.GRAYSCALE_TRUST)
+            # Crypto funds
+            else:
+                self.append_bitcoin_entity_tag(BitcoinEntityTag.CRYPTO_FUND)
+
+        # Identify active and announced bitcoin treasury strategies
+        if self.entity_type == "operating" and not self.sic == "6221":
+            active_btc_strategy_query_1 = Base_Bitcoin_Query(ciks=self.cik, q='acquired NEAR(2) bitcoin -"bitcoin mining" -"bitcoin miners"').model_dump(exclude_none=True)
+            active_btc_strategy_query_2 = Base_Bitcoin_Query(ciks=self.cik, q='acquisition NEAR(2) bitcoin -"bitcoin mining" -"bitcoin miners"').model_dump(exclude_none=True)
+            active_btc_strategy_query_3 = Base_Bitcoin_Query(ciks=self.cik, q='purchased NEAR(2) bitcoin -"bitcoin mining" -"bitcoin miners"').model_dump(exclude_none=True)
+            active_btc_strategy_query_4 = Base_Bitcoin_Query(ciks=self.cik, q='purchase NEAR(2) bitcoin -"bitcoin mining" -"bitcoin miners"').model_dump(exclude_none=True)
+            query_results = await get_query_results_async(queries=[active_btc_strategy_query_1, active_btc_strategy_query_2, active_btc_strategy_query_3, active_btc_strategy_query_4])
+            if any([len(query_result.hits) > 0 for query_result in query_results.results]):
+                self.append_bitcoin_entity_tag(BitcoinEntityTag.ACTIVE_BTC_STRATEGY)
                 
-        return filtered_statements
+                
+        return self
     
-    def filter_btc_treasury_updates(self, treasury_updates: List[BitcoinTreasuryUpdateStatement], holding_statements: List[GenAI_BitcoinHoldingsStatement]) -> List[BitcoinTreasuryUpdateStatement]:  
+    
+    
+    
+    
+    
+    
+    
+    
+    # def get_btc_amt_in_treasury(self) -> float:
+    #     # Return the latest and most accurate bitcoin holdings
+    #     for filing in sorted(self.bitcoin_filings, key=lambda x: datetime.fromisoformat(x.file_date), reverse=True):
+    #         if filing.has_total_bitcoin_holdings:
+    #             return filing.total_bitcoin_holdings.total_bitcoin_holdings
+    #     return 0.0
+    
+    
+    # def filter_btc_holdings_statements(self, holding_statements: List[GenAI_BitcoinHoldingsStatement]) -> List[GenAI_BitcoinHoldingsStatement]:
         
-        filtered_update_statements = []
-        # Sort the filtered_holdings by date
-        sorted_holdings = sorted(holding_statements, key=lambda x: datetime.fromisoformat(x.file_date))
-        sorted_holdings_wo_first = sorted_holdings[0:]
-        # Group treasury updates by bitcoin_amount
-        grouped_statements_by_btc_amount = defaultdict(list)
-        for statement in treasury_updates:
-            grouped_statements_by_btc_amount[int(statement.bitcoin_treasury_update.bitcoin_amount)].append(statement)
+    #     filtered_statements = []
         
-        # Filter out updates where the bitcoin amount is the same as a reported holding statement (except first one)
-        for statements in grouped_statements_by_btc_amount.values():
-            earliest_statement : BitcoinTreasuryUpdateStatement = sorted(statements, key=lambda x: datetime.fromisoformat(x.file_date))[0]
-            update_amount = int(earliest_statement.bitcoin_treasury_update.bitcoin_amount)
-            if(update_amount not in [int(h.bitcoin_data.total_bitcoin_holdings) for h in sorted_holdings_wo_first]):
-                filtered_update_statements.append(earliest_statement)
+    #     # Group holding statements by accession number
+    #     grouped_statements_by_accn = defaultdict(list)
+    #     for statement in holding_statements:
+    #         grouped_statements_by_accn[statement.accession_number].append(statement)
+        
+    #     # Group holding statements by btc holdings
+    #     grouped_statements_by_holdings = defaultdict(list)
+    #     for statement in holding_statements:
+    #         grouped_statements_by_holdings[int(statement.bitcoin_data.total_bitcoin_holdings)].append(statement)
+        
+    #     for statements in grouped_statements_by_holdings.values():
+    #         if len(statements) == 1:
+    #             filtered_statements.extend(statements)
+    #         elif len(statements) > 1:
+    #             # Get the earliest statement available
+    #             earliest_statement = sorted(statements, key=lambda x: datetime.fromisoformat(x.file_date))[0]
+    #             filtered_statements.append(earliest_statement)
+                
+    #     return filtered_statements
+    
+    # def filter_btc_treasury_updates(self, treasury_updates: List[GenAI_BitcoinTreasuryUpdateStatement], holding_statements: List[GenAI_BitcoinHoldingsStatement]) -> List[GenAI_BitcoinTreasuryUpdateStatement]:  
+        
+    #     filtered_update_statements = []
+    #     # Sort the filtered_holdings by date
+    #     sorted_holdings = sorted(holding_statements, key=lambda x: datetime.fromisoformat(x.file_date))
+    #     sorted_holdings_wo_first = sorted_holdings[0:]
+    #     # Group treasury updates by bitcoin_amount
+    #     grouped_statements_by_btc_amount = defaultdict(list)
+    #     for statement in treasury_updates:
+    #         grouped_statements_by_btc_amount[int(statement.bitcoin_treasury_update.bitcoin_amount)].append(statement)
+        
+    #     # Filter out updates where the bitcoin amount is the same as a reported holding statement (except first one)
+    #     for statements in grouped_statements_by_btc_amount.values():
+    #         earliest_statement : GenAI_BitcoinTreasuryUpdateStatement = sorted(statements, key=lambda x: datetime.fromisoformat(x.file_date))[0]
+    #         update_amount = int(earliest_statement.bitcoin_treasury_update.bitcoin_amount)
+    #         if(update_amount not in [int(h.bitcoin_data.total_bitcoin_holdings) for h in sorted_holdings_wo_first]):
+    #             filtered_update_statements.append(earliest_statement)
             
                 
-        return filtered_update_statements
+    #     return filtered_update_statements
     
-    def update_btc_treasury_data(self) -> "PublicEntity":
+    # def update_btc_treasury_data(self) -> "PublicEntity":
         
-        # Filtered bitcoin treasury holdings statements
-        raw_btc_treasury_holdings_statements = [
-            GenAI_BitcoinHoldingsStatement.from_bitcoin_filing(filing) for filing in self.bitcoin_filings if filing.has_total_bitcoin_holdings
-        ]
-        filtered_btc_treasury_holdings_statements = self.filter_btc_holdings_statements(raw_btc_treasury_holdings_statements)
-        self.btc_treasury_holdings_statements = filtered_btc_treasury_holdings_statements
+    #     # Filtered bitcoin treasury holdings statements
+    #     raw_btc_treasury_holdings_statements = [
+    #         GenAI_BitcoinHoldingsStatement.from_bitcoin_filing(filing) for filing in self.bitcoin_filings if filing.has_total_bitcoin_holdings
+    #     ]
+    #     filtered_btc_treasury_holdings_statements = self.filter_btc_holdings_statements(raw_btc_treasury_holdings_statements)
+    #     self.btc_treasury_holdings_statements = filtered_btc_treasury_holdings_statements
         
-        # Filtered bitcoin treasury updates
-        raw_btc_treasury_update_statements = [
-            BitcoinTreasuryUpdateStatement.from_bitcoin_filing(filing) for filing in self.bitcoin_filings if filing.has_bitcoin_treasury_update
-        ]
+    #     # Filtered bitcoin treasury updates
+    #     raw_btc_treasury_update_statements = [
+    #         GenAI_BitcoinTreasuryUpdateStatement.from_bitcoin_filing(filing) for filing in self.bitcoin_filings if filing.has_bitcoin_treasury_update
+    #     ]
         
-        filtered_btc_treasury_update_statements = self.filter_btc_treasury_updates(raw_btc_treasury_update_statements, filtered_btc_treasury_holdings_statements)
-        self.btc_treasury_update_statements = filtered_btc_treasury_update_statements
+    #     filtered_btc_treasury_update_statements = self.filter_btc_treasury_updates(raw_btc_treasury_update_statements, filtered_btc_treasury_holdings_statements)
+    #     self.btc_treasury_update_statements = filtered_btc_treasury_update_statements
         
-        # Update the bitcoin holdings for the entity
-        self.total_btc_holdings = self.get_btc_amt_in_treasury()
-        return self
+    #     # Update the bitcoin holdings for the entity
+    #     self.total_btc_holdings = self.get_btc_amt_in_treasury()
+    #     return self
     
     
-    async def load_13fhr_filings(self) -> "PublicEntity":
+    # async def load_13fhr_filings(self) -> "PublicEntity":
         
-        from models.sec_edgar.efts.query import Base_EFTS_Query
-        from services.edgar import get_query_result_async
-        from models.parsers.sec_13f_hr.parser_13fhr_xml import parse_sec_xml
-        import pandas as pd
+    #     from models.sec_edgar.efts.query import Base_EFTS_Query
+    #     from services.edgar import get_query_result_async
+    #     from models.parsers.sec_13f_hr.parser_13fhr_xml import parse_sec_xml
+    #     import pandas as pd
         
-        # Logger
-        logger = logging.getLogger(self.__class__.__name__)
+    #     # Logger
+    #     logger = logging.getLogger(self.__class__.__name__)
               
 
-        # Retrieve QueryResult (QueryHits) for 13FHR query
-        base_13FHR_query = Base_EFTS_Query(q="MICROSTRATEGY", forms=["13F-HR"], ciks="0000093751",startdt=date(2024,1,1).isoformat()).to_dict()
-        query_result = await get_query_result_async(q=base_13FHR_query)
-        hits = query_result.hits
-        ciks = set([hit.cik for hit in hits])
-        logger.info(len(ciks))
-        urls = [hit.url for hit in hits]
-        dates = [hit.file_date for hit in hits]
-        logger.info(dates)
-        filings_raw = await SEC_Filing.get_raw_content_text_for(urls)
-        parsed_content = [parse_sec_xml(filing_raw) for filing_raw in filings_raw]
-        filtered_parsed_content = [entry for entry in parsed_content[2] if "MICROSTRATEGY" in entry["nameOfIssuer"]]
-        # Convert to DataFrame
-        df = pd.DataFrame(filtered_parsed_content)
+    #     # Retrieve QueryResult (QueryHits) for 13FHR query
+    #     base_13FHR_query = Base_EFTS_Query(q="MICROSTRATEGY", forms=["13F-HR"], ciks="0000093751",startdt=date(2024,1,1).isoformat()).to_dict()
+    #     query_result = await get_query_result_async(q=base_13FHR_query)
+    #     hits = query_result.hits
+    #     ciks = set([hit.cik for hit in hits])
+    #     logger.info(len(ciks))
+    #     urls = [hit.url for hit in hits]
+    #     dates = [hit.file_date for hit in hits]
+    #     logger.info(dates)
+    #     filings_raw = await SEC_Filing.get_raw_content_text_for(urls)
+    #     parsed_content = [parse_sec_xml(filing_raw) for filing_raw in filings_raw]
+    #     filtered_parsed_content = [entry for entry in parsed_content[2] if "MICROSTRATEGY" in entry["nameOfIssuer"]]
+    #     # Convert to DataFrame
+    #     df = pd.DataFrame(filtered_parsed_content)
     
-        logger.info(df)
+    #     logger.info(df)
        
-        return self
+    #     return self
     
     
-    async def extract_official_btc_holding_statements(self) -> "PublicEntity":
+    # async def extract_official_btc_holding_statements(self) -> "PublicEntity":
         
-        # Retrieve all the Bitcoin holdings statements from latest 10-Q filings
-        filings_10q = [filing for filing in self.get_bitcoin_filings_by_form_type("10-Q") if filing.parsed_official_10q_statements == False]
+    #     # Retrieve all the Bitcoin holdings statements from latest 10-Q filings
+    #     filings_10q = [filing for filing in self.get_bitcoin_filings_by_form_type("10-Q") if filing.parsed_official_10q_statements == False]
         
  
         
-        updated_bitcoin_filings = await Bitcoin_Filing.extract_official_bitcoin_holdings_for(filings_10q, ticker=self.ticker)
-        all_holding_statements = [statement for filing in updated_bitcoin_filings for statement in filing.official_bitcoin_holdings]
-        all_fair_value_statements = [statement for filing in updated_bitcoin_filings for statement in filing.official_fair_value_statements]
+    #     updated_bitcoin_filings = await Bitcoin_Filing.extract_official_bitcoin_holdings_for(filings_10q, ticker=self.ticker)
+    #     all_holding_statements = [statement for filing in updated_bitcoin_filings for statement in filing.official_bitcoin_holdings]
+    #     all_fair_value_statements = [statement for filing in updated_bitcoin_filings for statement in filing.official_fair_value_statements]
         
-        # Remove duplicates
-        unique_holding_statements = { (statement.date, statement.amount): statement for statement in all_holding_statements }.values()
-        unique_fair_value_statements = { (statement.date, statement.amount): statement for statement in all_fair_value_statements }.values()
+    #     # Remove duplicates
+    #     unique_holding_statements = { (statement.date, statement.amount): statement for statement in all_holding_statements }.values()
+    #     unique_fair_value_statements = { (statement.date, statement.amount): statement for statement in all_fair_value_statements }.values()
         
-        # Sort the holding statements by the date field
-        sorted_holding_statements = sorted(unique_holding_statements, key=lambda x: datetime.fromisoformat(x.date))
-        sorted_fair_value_statements = sorted(unique_fair_value_statements, key=lambda x: datetime.fromisoformat(x.date))
+    #     # Sort the holding statements by the date field
+    #     sorted_holding_statements = sorted(unique_holding_statements, key=lambda x: datetime.fromisoformat(x.date))
+    #     sorted_fair_value_statements = sorted(unique_fair_value_statements, key=lambda x: datetime.fromisoformat(x.date))
         
-        return self
+    #     return self
    
         

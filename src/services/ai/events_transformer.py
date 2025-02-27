@@ -23,19 +23,6 @@ class BitcoinTreasuryUpdate(BaseModel):
         None, description="The total amount in USD spent or received for the acquisition or sale. If this value is not explicitly stated in the input but inferred or calculated, set 'amount_in_usd_filled_in' to True."
     )
 
-    # Flags for whether AI inferred values
-    bitcoin_amount_filled_in: bool = Field(
-        ..., description="Set to True if 'bitcoin_amount' was inferred or calculated instead of being explicitly found in the input."
-    )
-    
-    average_price_per_bitcoin_filled_in: bool = Field(
-        ..., description="Set to True if 'average_price_per_bitcoin' was inferred or calculated instead of being explicitly found in the input."
-    )
-    
-    amount_in_usd_filled_in: bool = Field(
-        ..., description="Set to True if 'amount_in_usd' was inferred or calculated instead of being explicitly found in the input."
-    )
-
 
     @model_validator(mode='before')
     def check_either_bitcoin_amount_or_amount_in_usd(cls, values):
