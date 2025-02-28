@@ -310,8 +310,10 @@ class PublicEntity(BaseModel):
             if len(query_result.hits) > 0:
                 self.append_bitcoin_entity_tag(BitcoinEntityTag.MINER)
             else:
-                self.append_bitcoin_entity_tag(BitcoinEntityTag.CRYPTO_SERVICE_PROVIDER)          
-
+                self.append_bitcoin_entity_tag(BitcoinEntityTag.CRYPTO_SERVICE_PROVIDER)  
+        # Security brokers, dealers, and exchanges
+        if self.sic == "6211":
+            self.append_bitcoin_entity_tag        
         # Identify bitcoin funds / spot bitcoin etfs
         if self.sic == "6221":
             # Spot bitcoin etfs
