@@ -170,7 +170,7 @@ class Parser10QXBRL:
         
         return (self.xbrl_url, bitcoin_holdings)
     
-    async def extract_bitcoin_fair_value(self) -> List[BitcoinFairValueStatement]:
+    async def extract_bitcoin_fair_value(self) -> tuple[str, List[BitcoinFairValueStatement]]:
         """
         Extract Bitcoin fair value from the XBRL file.
         """
@@ -194,7 +194,7 @@ class Parser10QXBRL:
                 date = context.get("date")
                 unit = "USD"
                 
-                fair_value_statement = BitcoinFairValueStatement(amount=value, date=date, unit=unit, tag=ai_predicted_tag.split('}')[1])
+                fair_value_statement = BitcoinFairValueStatement(amount=value, report_date=date, unit=unit, tag=ai_predicted_tag.split('}')[1])
                 
                 # Filter out holdings for other cryptocurrencies (Coinbase for example)
                 coin_context = context.get("coin_context")
@@ -204,5 +204,5 @@ class Parser10QXBRL:
                 else:
                     bitcoin_fair_value.append(fair_value_statement)
         
-        return bitcoin_fair_value
+        return (self.xbrl_url, bitcoin_fair_value)
 

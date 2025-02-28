@@ -170,6 +170,20 @@ class PublicEntityRepository:
             return False
         
         
+    def reset_bitcoin_filing_parsed_states(self) -> bool:
+        
+        try:
+            entities = self.get_entities_w_existing_ticker()
+            for entity in entities:
+                entity.reset_bitcoin_filings_parsed_states()
+            self.add_entities(entities)
+            self.logger.info(f"Reset bitcoin filing parsed states for all entities")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error resetting bitcoin filing parsed states for all entities: {e}")
+            return False
+        
+        
     async def identify_bitcoin_tags_for(self,public_entity: PublicEntity) -> bool:
         
         try:

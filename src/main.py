@@ -28,9 +28,10 @@ async def main():
     # awai  t dbu.sync_bitcoin_entities()
     
     # await dbu.extract_tenq_xbrl_facts()
+    await dbu.sync_bitcoin_entities()
+    await dbu.sync_bitcoin_filings()
+    await dbu.extract_tenq_xbrl_facts()
     
-    active_treasuries = entity_repo.get_entities_w_official_holdings()
-    print([entity.ticker for entity in active_treasuries])
 
     
 asyncio.run(main())

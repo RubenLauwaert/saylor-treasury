@@ -53,7 +53,7 @@ class BitcoinEntityTag(str, Enum):
     MENTIONED_BTC_IN_FILING = "mentioned_btc_in_filing"
     
 class BitcoinHoldingsStatement(BaseModel):
-    amount: float
+    amount: float 
     report_date: str
     unit: Literal["BTC", "USD"]
     tag: str
@@ -65,10 +65,15 @@ class HoldingStatementTenQ(BaseModel):
 
 
 class BitcoinFairValueStatement(BaseModel):
-    amount: float
-    date: str
+    amount: float = Field(default=0)
+    report_date: str
     unit: Literal["BTC", "USD"]
     tag: str
+    
+class FairValueStatementTenQ(BaseModel):
+    
+    statement: BitcoinFairValueStatement
+    filing: Bitcoin_Filing  
     
 
 # Models for Bitcoin Events

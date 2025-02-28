@@ -31,27 +31,7 @@ class Bitcoin_Filing(BaseModel):
     did_extract_events: bool = Field(default=False)
     
     
-    
-    # # Optional data
-    # extracted_btc_events: List[BitcoinEvent] = Field(default=[])
-    # # Bools
-    # has_extracted_events: bool = Field(default=False)
-    # has_raw_content: bool = Field(default=False)
-    # has_bitcoin_treasury_update: bool = Field(default=False)
-    # has_total_bitcoin_holdings: bool = Field(default=False)
-    # parsed_official_10q_statements: bool = Field(default=False)
-    
-    # # Raw content
-    # raw_text: str = Field(default="")
-    # # Bitcoin Treasury data
-    # bitcoin_treasury_update: Optional[BitcoinTreasuryUpdate] = Field(
-    #     default=None,
-    #     description="The Bitcoin Treasury Update data for the entity."
-    # )
-    # total_bitcoin_holdings: Optional[TotalBitcoinHoldings] = Field(
-    #     default=None,
-    #     description="The Total Bitcoin Holdings data for the entity."
-    # )
+
     
     
     @classmethod
@@ -65,6 +45,14 @@ class Bitcoin_Filing(BaseModel):
             form_type=hit.form_type,
             file_date=hit.file_date,
         )
+        
+        
+    # Setters
+    
+    def reset_parsed_states(self) -> "Bitcoin_Filing":
+        self.did_parse_xbrl = False
+        self.did_extract_events = False
+        return self
     
     # # official_bitcoin_holdings: List[BitcoinHoldingsStatement] = Field(default=[], description="The official bitcoin holdings statement for the entity. (only for 10Q's)")
     # # official_fair_value_statements: List[BitcoinFairValueStatement] = Field(default=[], description="The official bitcoin fair value statements for the entity. (only for 10Q's)")

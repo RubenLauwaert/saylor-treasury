@@ -6,7 +6,7 @@ class BitcoinData(BaseModel):
 
     
     holding_statements_xbrl: List[HoldingStatementTenQ] = Field(default=[], description="The list of official bitcoin holdings statements, extracted from parsed XBRL 10Q filigns")
-    fair_value_statements: List[BitcoinFairValueStatement] = Field(default=[], description="The list of official bitcoin fair value statements, extracted from parsed XBRL 10Q filigns")
+    fair_value_statements_xbrl: List[FairValueStatementTenQ] = Field(default=[], description="The list of official bitcoin fair value statements, extracted from parsed XBRL 10Q filigns")
     
     # Information extracted out of bitcoin filings with Generative AI
     bitcoin_events: List[BitcoinEvent] = Field(default=[], description="The list of bitcoin events.")
@@ -36,5 +36,27 @@ class BitcoinData(BaseModel):
         # Before adding ten-q holding statement, check if the statement already exists
         for statement in holding_statements:
             self.append_holding_statement_xbrl(statement)
+            
+            
+            
+            
+    def append_fair_value_statement_xbrl(self, fair_value_statement: FairValueStatementTenQ):
+        # check if statement with same fair value and report date already exists
+        existing_statements = [existing_statement for existing_statement in self.fair_value_statements_xbrl if existing_statement.statement.report_date == fair_value_statement.statement.report_date and existing_statement.statement.amount == fair_value_statement.statement.amount]
+        does_exist = len(existing_statements) > 0
+        
+        if not does_exist:
+            self.fair_value_statements_xbrl.append(fair_value_statement)
+        else:
+            existing_statement = existing_statements[0]
+            # Here we need to keep the existing statement but update the filing with the one that is the oldest
+            new_statement_has_older_source = date.fromisoformat(fair_value_statement.filing.file_date) < date.fromisoformat(existing_statement.filing.file_date)
+            if new_statement_has_older_source:
+                self.fair_value_statements_xbrl.remove(existing_statement)
+                self.fair_value_statements_xbrl.append(fair_value_statement)
+            
+        return self.fair_value_statements_xbrl
+        
+
                 
                 

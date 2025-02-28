@@ -214,11 +214,14 @@ class PublicEntity(BaseModel):
         self.bitcoin_filings = []
         self.last_updated_bitcoin_filings = datetime.min
         
+    
+    def reset_bitcoin_filings_parsed_states(self):
+        bitcoin_filings_reset = [ filing.reset_parsed_states() for filing in self.bitcoin_filings]
+        self.bitcoin_filings = bitcoin_filings_reset
         
     def reset_bitcoin_data(self):
         self.bitcoin_data = BitcoinData()
-    
-    
+        self.reset_bitcoin_filings_parsed_states()
     # Updaters
     
     
@@ -266,6 +269,15 @@ class PublicEntity(BaseModel):
     
     
     
+    
+    
+    
+    
+    
+    
+    
+    
+    
     # Updates the bitcoin data for the entity
     
     async def extract_official_bitcoin_data_tenqs_xbrl(self) -> "PublicEntity":
@@ -293,13 +305,36 @@ class PublicEntity(BaseModel):
             filing = [filing for filing in unparsed_tenqs if filing.url == original_url][0]
             filing.did_parse_xbrl = True
             for statement in holding_statements:
-                
                 self.bitcoin_data.append_holding_statement_xbrl(HoldingStatementTenQ(statement=statement, filing=filing))
-            print([statement.statement for statement in self.bitcoin_data.holding_statements_xbrl])
+            
 
         # TODO Extract Fair Value Statements for public entity 
         
+        tasks_fair_value_statements = [lambda parsed_content=parsed_content: parsed_content.extract_bitcoin_fair_value() for parsed_content in parsed_xbrl_contents]
+        fair_value_results = await ApiThrottler.throttle_openai_requests(request_funcs=tasks_fair_value_statements)
+        
+        # Remove duplicates from fair value statements
+        for xbrl_url, fair_value_statements in fair_value_results:
+            original_url = xbrl_url.replace("_htm.xml",".htm")
+            filing = [filing for filing in unparsed_tenqs if filing.url == original_url][0]
+            for statement in fair_value_statements:
+                self.bitcoin_data.append_fair_value_statement_xbrl(FairValueStatementTenQ(statement=statement, filing=filing))
+            print([statement.statement for statement in self.bitcoin_data.fair_value_statements_xbrl])
         return self
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
         
     async def identify_bitcoin_tags(self) -> "PublicEntity":
         
@@ -313,7 +348,7 @@ class PublicEntity(BaseModel):
                 self.append_bitcoin_entity_tag(BitcoinEntityTag.CRYPTO_SERVICE_PROVIDER)  
         # Security brokers, dealers, and exchanges
         if self.sic == "6211":
-            self.append_bitcoin_entity_tag        
+            self.append_bitcoin_entity_tag(BitcoinEntityTag.CRYPTO_SERVICE_PROVIDER)        
         # Identify bitcoin funds / spot bitcoin etfs
         if self.sic == "6221":
             # Spot bitcoin etfs
@@ -336,7 +371,7 @@ class PublicEntity(BaseModel):
             if any([len(query_result.hits) > 0 for query_result in query_results.results]):
                 self.append_bitcoin_entity_tag(BitcoinEntityTag.ACTIVE_BTC_STRATEGY)
                 
-                
+        self.are_tags_identified = True
         return self
     
     
