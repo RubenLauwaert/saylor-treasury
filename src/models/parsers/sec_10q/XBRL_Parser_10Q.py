@@ -158,7 +158,7 @@ class Parser10QXBRL:
                 else:
                     value = float(element.text) if element.text is not None else 0
                   
-                bitcoin_holding_statement = BitcoinHoldingsStatement(amount=value, date=date, unit=unit, tag=ai_predicted_tag.split('}')[1])
+                bitcoin_holding_statement = BitcoinHoldingsStatement(amount=value, report_date=date, unit=unit, tag=ai_predicted_tag.split('}')[1])
                 
                 # Filter out holdings for other cryptocurrencies (Coinbase for example)
                 coin_context = context.get("coin_context")

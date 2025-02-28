@@ -5,7 +5,7 @@ from typing import Optional, List, Literal
 from models.filing.SEC_Filing import SEC_Filing
 from services.ai.bitcoin_events import *
 from services.ai.events_transformer import *
-from models.parsers.sec_10q.XBRL_Parser_10Q import Parser10QXBRL
+# from models.parsers.sec_10q.XBRL_Parser_10Q import Parser10QXBRL
 from models.sec_edgar.efts.query import QueryHit
 from models.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
 

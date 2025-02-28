@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field, model_validator
+from models.filing.Bitcoin_Filing import Bitcoin_Filing
 
 from datetime import datetime
 
@@ -53,9 +54,14 @@ class BitcoinEntityTag(str, Enum):
     
 class BitcoinHoldingsStatement(BaseModel):
     amount: float
-    date: str
+    report_date: str
     unit: Literal["BTC", "USD"]
     tag: str
+    
+class HoldingStatementTenQ(BaseModel):
+    
+    statement: BitcoinHoldingsStatement
+    filing: Bitcoin_Filing
 
 
 class BitcoinFairValueStatement(BaseModel):

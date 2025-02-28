@@ -27,10 +27,10 @@ entity_repo = PublicEntityRepository()
 async def main():
     # awai  t dbu.sync_bitcoin_entities()
     
-    entity = entity_repo.get_entity_by_ticker("SMLR")
-    await entity_repo.update_bitcoin_data_for(entity)
-    # await dbu.parse_bitcoin_filings()
+    # await dbu.extract_tenq_xbrl_facts()
     
+    active_treasuries = entity_repo.get_entities_w_official_holdings()
+    print([entity.ticker for entity in active_treasuries])
 
     
 asyncio.run(main())

@@ -96,15 +96,18 @@ class DatabaseUpdater:
         public_entities = await ApiThrottler.throttle_requests(request_funcs=tasks)
         
         
-    async def parse_bitcoin_filings(self):
+    async def extract_tenq_xbrl_facts(self):
         # Only get entities with tickers
         public_entities = self.entity_repo.get_entities_w_existing_ticker()
         
+        # TODO : Make more performant by reasoning how many 10Q filings are not yet processed
         # Extract official btc holding statements from 10Q bitcoin filings
-        tasks = [lambda entity=entity: entity.extract_official_btc_holding_statements() for entity in public_entities]
-        public_entities = await ApiThrottler.throttle_requests(request_funcs=tasks)
+        # tasks = [lambda entity=entity: self.entity_repo.update_tenq_xbrl_facts_for(entity) for entity in public_entities]
+        # public_entities = await ApiThrottler.throttle_requests(request_funcs=tasks)
         
-        self.entity_repo.update_entities(public_entities)
+        for entity in public_entities:
+            await self.entity_repo.update_tenq_xbrl_facts_for(entity)
+
         
 
             

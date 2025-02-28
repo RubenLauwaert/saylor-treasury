@@ -213,6 +213,10 @@ class PublicEntity(BaseModel):
     def reset_bitcoin_filings(self):
         self.bitcoin_filings = []
         self.last_updated_bitcoin_filings = datetime.min
+        
+        
+    def reset_bitcoin_data(self):
+        self.bitcoin_data = BitcoinData()
     
     
     # Updaters
@@ -267,9 +271,12 @@ class PublicEntity(BaseModel):
     async def extract_official_bitcoin_data_tenqs_xbrl(self) -> "PublicEntity":
         from models.parsers.sec_10q.XBRL_Parser_10Q import Parser10QXBRL
         from services.throttler import ApiThrottler
+        # Logger
+        logger = logging.getLogger(self.__class__.__name__)
         # Get official bitcoin holding statements for public entity
         entity_tenqs = self.get_bitcoin_filings_by_form_type(form_type="10-Q")
         unparsed_tenqs = [ tenq for tenq in entity_tenqs if not tenq.did_parse_xbrl]
+        logger.info(f"Found {len(unparsed_tenqs)} 10-Q filings to extract XBRL facts for {self.ticker}")
         # urls necessary for retrieving xbrl content 
         xbrl_urls = [ tenq.url.replace(".htm","_htm.xml") for tenq in unparsed_tenqs]
         raw_xbrl_contents = await get_raw_content_text_for(xbrl_urls)
@@ -281,7 +288,14 @@ class PublicEntity(BaseModel):
         holding_results = await ApiThrottler.throttle_openai_requests(request_funcs=tasks_holding_statements)
         
         # Remove duplicates from holding statements
-
+        for xbrl_url, holding_statements in holding_results:
+            original_url = xbrl_url.replace("_htm.xml",".htm")
+            filing = [filing for filing in unparsed_tenqs if filing.url == original_url][0]
+            filing.did_parse_xbrl = True
+            for statement in holding_statements:
+                
+                self.bitcoin_data.append_holding_statement_xbrl(HoldingStatementTenQ(statement=statement, filing=filing))
+            print([statement.statement for statement in self.bitcoin_data.holding_statements_xbrl])
 
         # TODO Extract Fair Value Statements for public entity 
         

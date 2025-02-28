@@ -104,6 +104,13 @@ class PublicEntityRepository:
         )
         return [PublicEntity(**entity) for entity in entities]
     
+    def get_entities_w_official_holdings(self) -> List[PublicEntity]:
+        entities_w_holdings = self.collection.find({"bitcoin_data.holding_statements_xbrl": {"$exists": True, "$ne": []}, "ticker": {"$exists": True, "$ne": None}})
+        self.logger.info(
+            f"Retrieved {self.collection.count_documents({'bitcoin_data.holding_statements_xbrl': {'$exists': True, '$ne': []}, 'ticker': {'$exists': True, '$ne': None}})} entities with official bitcoin holdings from the collection."
+        )
+        return [PublicEntity(**entity) for entity in entities_w_holdings]
+    
     
     def get_entities_by_type(self, entity_type: str) -> List[PublicEntity]:
         entities = self.collection.find({"entity_type": entity_type, "ticker": {"$exists": True, "$ne": None}})
@@ -175,7 +182,7 @@ class PublicEntityRepository:
             return False
         
         
-    async def update_bitcoin_data_for(self,public_entity: PublicEntity) -> bool:
+    async def update_tenq_xbrl_facts_for(self,public_entity: PublicEntity) -> bool:
         
         try:
             updated_entity = await public_entity.extract_official_bitcoin_data_tenqs_xbrl()
