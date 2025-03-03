@@ -7,6 +7,7 @@ from logging import Logger
 from openai import AsyncOpenAI
 from config import openai_settings
 from models.util import StatementResults
+from models.filing.Bitcoin_Filing import Bitcoin_Filing
 
 
 class BitcoinStatementsExtractor:
@@ -32,7 +33,6 @@ class BitcoinStatementsExtractor:
         "   - BITCOIN_PURCHASE_EXECUTED\n"
         "   - BITCOIN_SALE\n"
         "   - BITCOIN_TREASURY_POLICY_APPROVAL\n"
-        "   - BITCOIN_TREASURY_POLICY_UPDATE\n\n"
         "3. **Distinguishing between Bitcoin purchase types**:\n"
         "   - **BITCOIN_PURCHASE_ANNOUNCEMENT**: When a company announces plans to purchase Bitcoin but does not specify execution details "
         "(e.g., 'Company X intends to buy $1M worth of Bitcoin in the coming months' or 'Company X approved a 1 million $ Bitcoin purchase ).\n"
@@ -64,9 +64,11 @@ class BitcoinStatementsExtractor:
 
     # FILE: src/services/ai/bitcoin_statements.py
 
-    async def extract_statements(self, raw_text: str) -> Optional[StatementResults]:
+    async def extract_statements(
+        self, filing: Bitcoin_Filing, raw_text: str
+    ) -> tuple[Bitcoin_Filing, Optional[StatementResults]]:
         self.logger.info(f"Extracting Bitcoin statements from 8-K filing...")
-        self.logger.info(f"Raw text length: {len(raw_text)}")
+        self.logger.info(f"{filing}")
         try:
             # OpenAI API Call with JSON response format
             chat_completion = await self.client.beta.chat.completions.parse(
@@ -80,34 +82,16 @@ class BitcoinStatementsExtractor:
                 ],
                 response_format=StatementResults,
             )
-
+            filing.did_extract_events_gen_ai = True
             # Extract the response content
             response_content = chat_completion.choices[0].message.content
-            self.logger.info(f"Raw API response: {response_content}")
-
+            if response_content:
+                self.logger.info("Bitcoin statements extracted successfully.")
+                return (filing, response_content)
             if not response_content:
                 self.logger.error("OpenAI response content is empty or None.")
-                return None
-
-            # Try to parse the JSON response
-            try:
-                parsed_response = StatementResults.model_validate_json(response_content)
-
-                # Check if statements are valid
-                if not parsed_response.statements:
-                    self.logger.error("No statements found in the response.")
-                    return None
-
-                self.logger.info(
-                    f"Successfully parsed {len(parsed_response.statements)} statements"
-                )
-                return parsed_response
-
-            except Exception as parse_err:
-                self.logger.error(f"Failed to parse response: {parse_err}")
-                self.logger.error(f"Response content: {response_content}")
-                return None
+                return (filing, [])
 
         except Exception as e:
             self.logger.error(f"Error extracting events: {e}")
-            return None
+            return (filing, [])

@@ -406,27 +406,38 @@ class PublicEntity(BaseModel):
         content_result_eightks = await get_raw_content_text_for(
             [eightk.url for eightk in eightks_filtered]
         )
-        cleaned_content_eightks = [
-            (
-                content_result[0],
-                Filing_Parser_Generic.get_cleaned_text(content_result[1]),
-            )
-            for content_result in content_result_eightks
-            if content_result[1] != ""
-        ]
+
+        # With this updated version that includes the Bitcoin Filing
+        tuple_filing_cleaned_content: List[tuple[Bitcoin_Filing, str]] = []
+        for content_result in content_result_eightks:
+            if content_result[1] != "":
+                url = content_result[0]
+                cleaned_content = Filing_Parser_Generic.get_cleaned_text(
+                    content_result[1]
+                )
+                # Find the corresponding Bitcoin_Filing object based on the URL
+                filing = next(
+                    (filing for filing in eightks_filtered if filing.url == url), None
+                )
+                if filing:
+                    tuple_filing_cleaned_content.append((filing, cleaned_content))
 
         # Extract bitcoin statements from cleaned eightks
         bitcoin_statements_extractor = BitcoinStatementsExtractor()
         tasks = [
-            lambda content=content: bitcoin_statements_extractor.extract_statements(
-                content[1]
+            lambda content=filing_content_tuple: bitcoin_statements_extractor.extract_statements(
+                filing=filing_content_tuple[0], raw_text=filing_content_tuple[1]
             )
-            for content in cleaned_content_eightks[:1]
+            for filing_content_tuple in tuple_filing_cleaned_content
         ]
         extracted_results = await ApiThrottler.throttle_openai_requests(
             request_funcs=tasks
         )
-        print(extracted_results)
+        bitcoin_statements = [
+            StatementResult_GEN_AI(statement=result[0], filing=result[1])
+            for result in extracted_results
+        ]
+        self.bitcoin_data.append_bitcoin_statements(bitcoin_statements)
 
         return self
 

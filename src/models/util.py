@@ -106,7 +106,7 @@ class StatementType(str, Enum):
 
     # Bitcoin treasury approvals
     BITCOIN_TREASURY_POLICY_APPROVAL = "BITCOIN_TREASURY_POLICY_APPROVAL"
-    BITCOIN_TREASURY_POLICY_UPDATE = "BITCOIN_TREASURY_POLICY_UPDATE"
+    BITCOIN_YIELD_STATEMENT = "BITCOIN_YIELD_STATEMENT"
 
 
 class BitcoinStatement(BaseModel):
@@ -135,6 +135,11 @@ class StatementResults(BaseModel):
         ...,
         description="The list of extracted statements, related to bitcoin, in the SEC Filing",
     )
+
+
+class StatementResult_GEN_AI(BaseModel):
+    statement: BitcoinStatement
+    filing: Bitcoin_Filing
 
 
 # Models for Bitcoin Treasury Updates
