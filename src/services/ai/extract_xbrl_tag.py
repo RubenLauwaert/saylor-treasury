@@ -11,8 +11,8 @@ from config import openai_settings
 
 
 class TagResult(BaseModel):
-  tag: Optional[str]
-  confidence: float 
+    tag: Optional[str]
+    confidence: float
 
 
 class XBRL_Extractor:
@@ -35,15 +35,11 @@ class XBRL_Extractor:
             self.logger.info(
                 f"Using structured output model: {self.structured_output_model}"
             )
-            
-            
 
         except Exception as e:
             self.logger.error(f"Error initializing OpenAI API: {e}")
 
-    async def extract_tag(
-        self, xbrl_tags: set[str], user_prompt: str
-    ) -> Optional[TagResult]:
+    async def extract_tag(self, user_prompt: str) -> Optional[TagResult]:
         try:
             chat_completion = await self.client.beta.chat.completions.parse(
                 model=self.structured_output_model,
@@ -66,22 +62,21 @@ class XBRL_Extractor:
 
         except Exception as e:
             self.logger.error(f"Error extracting events: {e}")
-            
+
     def extract_total_bitcoin_holdings_tag(self, xbrl_tags: set[str]) -> TagResult:
         user_prompt = self.generate_prompt_bitcoin_holdings(xbrl_tags)
         return self.extract_tag(xbrl_tags, user_prompt)
-      
+
     def extract_total_bitcoin_fair_value_tag(self, xbrl_tags: set[str]) -> TagResult:
         user_prompt = self.generate_prompt_bitcoin_fair_value(xbrl_tags)
         return self.extract_tag(xbrl_tags, user_prompt)
-      
+
     def extract_total_bitcoin__cost_basis_tag(self, xbrl_tags: set[str]) -> TagResult:
         user_prompt = self.generate_prompt_total_bitcoin_cost_basis(xbrl_tags)
         return self.extract_tag(xbrl_tags, user_prompt)
-            
+
     # Prompt generators
-            
-            
+
     def generate_prompt_bitcoin_holdings(self, xbrl_tags: set[str]) -> str:
         prompt = f"""
         You are an AI expert in financial reporting. Given the following XBRL tags, your task is to determine 
@@ -103,10 +98,9 @@ class XBRL_Extractor:
         
         If no such tag exists, return None for the tag and let it show in the confidence score by giving it a 0 score.
         """
-        
+
         return prompt
-        
-        
+
     def generate_prompt_bitcoin_fair_value(self, xbrl_tags: set[str]) -> str:
         prompt = f"""
         You are an AI expert in financial reporting. Given the following XBRL tags, your task is to determine 
@@ -125,9 +119,9 @@ class XBRL_Extractor:
         If no such tag exists, return None for the tag and let it show in the confidence score by giving it a 0 score.
         """
         return prompt
-      
+
     def generate_prompt_total_bitcoin_cost_basis(self, xbrl_tags: set[str]) -> str:
-      prompt = f"""
+        prompt = f"""
       You are an AI expert in financial reporting. Given the following XBRL tags, your task is to determine 
       which tag represents the cost basis of the total Bitcoin holdings of the entity.
 
@@ -146,4 +140,4 @@ class XBRL_Extractor:
       
       If no such tag exists, return None for the tag and let it show in the confidence score by giving it a 0 score.
       """
-      return prompt
+        return prompt
