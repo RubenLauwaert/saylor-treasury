@@ -10,40 +10,8 @@ from config import openai_settings
 from models.bitcoin_purchase.BitcoinPurchase import BitcoinPurchase
 from models.filing.SEC_Filing import SEC_Filing
 from models.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
+from models.util import *
 
-
-class BitcoinEventType(str, Enum):
-    # Bitcoin Transactions
-    DEFINITIVE_BITCOIN_ACQUISITION = "Definitive Bitcoin Acquisition - Do not include approvals for an acquisition or sale. Only add events where the acquisition or sale has been completed. "
-    DEFINITIVE_BITCOIN_SALE = "Definitive Bitcoin Sale - Do not include approvals for an acquisition or sale. Only add events where the acquisition or sale has been completed.  "
-    # Bitcoin Holdings Disclosures
-    DISCLOSURE_OF_TOTAL_AMOUNT_OF_BITCOIN = "Definitive Bitcoin Holdings Statement - This event should have a statement reporting total amount of bitcoin held by the entity"
-    #Other
-    BITCOIN_ANNOUNCEMENT = "Bitcoin Announcement Event"
-    BITCOIN_YIELD_STATEMENT = "Bitcoin Yield Metric Statement Event"
-
-class BitcoinEvent(BaseModel):
-    event_type: BitcoinEventType = Field(..., description="The type of bitcoin event. "),
-    event_description: str = Field(
-        ...,
-        description="A detailed description of the event. This description should be informative \
-            and provide enough context for the event. This description field will be used later to extract structured data."
-    )
-    event_keywords: List[str] = Field(
-        description="Keywords related to the event. Avoid keywords with numerical values."
-    )
-
-    confidence_score: float = Field(
-        description="The confidence score of the event extraction. This should be a value between 0 and 1. \
-            Focus on whether the type of event correctly reflects the content of the event description."
-    )
-
-
-class BitcoinFilingEventsResult(BaseModel):
-    events: List[BitcoinEvent] = Field(
-        ...,
-        description="The list of extracted filing events. This can be an exhaustive list of all events related to bitcoin in the filing.",
-    )
 
 class EventsExtractor:
 
@@ -51,9 +19,7 @@ class EventsExtractor:
     structured_output_model: str
     logger: Logger
 
-    system_prompt = "You are an AI assistant that is used to extract relevant bitcoin events from the content of an SEC Filing. \
-                    This includes events such as Bitcoin Treasury Updates, Total Bitcoin Holdings Statements, \
-                    At The Market (ATM), Convertible bond, Preferred Stock issuances and other relevant events"
+    system_prompt = "You are an AI assistant that is used to extract relevant events from SEC filings, particularly 8-K filings and the Exhibits belonging to 8-K's"
     user_prompt = "Can you extract all events, relevant for understanding their bitcoin strategy, from the following SEC filing html content : \n\n"
 
     def __init__(self):
@@ -74,7 +40,7 @@ class EventsExtractor:
 
     async def extract_events(
         self, raw_text: str
-    ) -> Optional[BitcoinFilingEventsResult]:
+    ) -> Optional[StatementResults]:
         try:
             chat_completion = await self.client.beta.chat.completions.parse(
                 model=self.structured_output_model,
@@ -88,7 +54,7 @@ class EventsExtractor:
                         "content": self.user_prompt + raw_text[0:127500],
                     },
                 ],
-                response_format=BitcoinFilingEventsResult,
+                response_format=StatementResults,
             )
 
             # Extract the structured output from the response

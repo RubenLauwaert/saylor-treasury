@@ -4,7 +4,6 @@ from typing import Optional, List, Literal
 
 from models.filing.SEC_Filing import SEC_Filing
 from services.ai.bitcoin_events import *
-from services.ai.events_transformer import *
 # from models.parsers.sec_10q.XBRL_Parser_10Q import Parser10QXBRL
 from models.sec_edgar.efts.query import QueryHit
 from models.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
@@ -28,12 +27,10 @@ class Bitcoin_Filing(BaseModel):
     
     # Booleans
     did_parse_xbrl: bool = Field(default=False)
-    did_extract_events: bool = Field(default=False)
-    
+    did_extract_events_gen_ai: bool = Field(default=False)
+    did_extract_holdings_gen_ai: bool = Field(default=False)
     
 
-    
-    
     @classmethod
     def from_query_hit(cls, hit: QueryHit) -> "Bitcoin_Filing":
         logger = logging.getLogger(cls.__name__)
@@ -49,10 +46,16 @@ class Bitcoin_Filing(BaseModel):
         
     # Setters
     
-    def reset_parsed_states(self) -> "Bitcoin_Filing":
+    def reset_all_states(self) -> "Bitcoin_Filing":
         self.did_parse_xbrl = False
-        self.did_extract_events = False
+        self.reset_gen_ai_states()
         return self
+    
+    def reset_gen_ai_states(self) -> "Bitcoin_Filing":
+        self.did_extract_events_gen_ai = False
+        self.did_extract_holdings_gen_ai = False
+        return self
+    
     
     # # official_bitcoin_holdings: List[BitcoinHoldingsStatement] = Field(default=[], description="The official bitcoin holdings statement for the entity. (only for 10Q's)")
     # # official_fair_value_statements: List[BitcoinFairValueStatement] = Field(default=[], description="The official bitcoin fair value statements for the entity. (only for 10Q's)")

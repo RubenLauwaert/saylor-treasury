@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 
-# Models for Bitcoin Data
+# Models for official 10-Q XBRL extractions
 
 SpotBitcoinETFs = [
     "GBTC",  # Grayscale Bitcoin Trust
@@ -75,46 +75,52 @@ class FairValueStatementTenQ(BaseModel):
     statement: BitcoinFairValueStatement
     filing: Bitcoin_Filing  
     
+    
+    
+    
+    
+    
 
-# Models for Bitcoin Events
+# Models For GenAI Bitcoin Events
 
-BitcoinEventType = Literal[
-    "DEFINITIVE_BITCOIN_ACQUISITION",
-    "DEFINITIVE_BITCOIN_SALE",
-    "DISCLOSURE_OF_TOTAL_AMOUNT_OF_BITCOIN",
-    "BITCOIN_TREASURY_ANNOUNCEMENT"]
+class BitcoinHoldingsDisclosure_GEN_AI(BaseModel):
+    amount: float = Field(description="The amount of bitcoin disclosed in the filing. The unit of this amount is preferred to be in BTC, if this is not available USD is also acceptable.")
+    unit: Literal["BTC", "USD"] = Field(description="The unit of the amount of bitcoin disclosed in the filing.")
+    report_date: Optional[str] = Field(description="The date of the report. This date should be in the format YYYY-MM-DD.")
+    
+    
+class StatementType(str, Enum):
+    # Bitcoin treasury events
+    BITCOIN_HOLDINGS_DISCLOSURE = "BITCOIN_HOLDINGS_DISCLOSURE."
+    BITCOIN_PURCHASE_ANNOUNCEMENT = "BITCOIN_PURCHASE_ANNOUNCEMENT."
+    BITCOIN_PURCHASE_EXECUTED = "BITCOIN_PURCHASE_EXECUTED."
+    BITCOIN_SALE = "BITCOIN_SALE."
+    
+    # Bitcoin treasury approvals
+    BITCOIN_TREASURY_POLICY_APPROVAL = "BITCOIN_TREASURY_POLICY_APPROVAL."
+    BITCOIN_TREASURY_POLICY_UPDATE = "BITCOIN_TREASURY_POLICY_UPDATE."
 
-class BitcoinEventType(str, Enum):
-    # Bitcoin Transactions
-    DEFINITIVE_BITCOIN_ACQUISITION = "Definitive Bitcoin Acquisition - Do not include approvals for an acquisition or sale. Only add events where the acquisition or sale has been completed. "
-    DEFINITIVE_BITCOIN_SALE = "Definitive Bitcoin Sale - Do not include approvals for an acquisition or sale. Only add events where the acquisition or sale has been completed.  "
-    # Bitcoin Holdings Disclosures
-    DISCLOSURE_OF_TOTAL_AMOUNT_OF_BITCOIN = "Definitive Bitcoin Holdings Statement - This event should have a statement reporting total amount of bitcoin held by the entity"
-    #Other
-    BITCOIN_ANNOUNCEMENT = "Bitcoin Announcement Event"
-    BITCOIN_YIELD_STATEMENT = "Bitcoin Yield Metric Statement Event"
 
-class BitcoinEvent(BaseModel):
-    event_type: BitcoinEventType = Field(..., description="The type of bitcoin event. "),
-    event_description: str = Field(
+class BitcoinStatement(BaseModel):
+    statement_type: StatementType = Field(...,description="The type of bitcoin statement. "),
+    statement_description: str = Field( ...,description="A detailed description of the statement. This description should be informative \
+            and provide enough context. This description field will be used later to extract structured data.")
+    
+    confidence_score: float = Field(...,description="The confidence score of the statement extraction. This should be a value between 0 and 1. \
+            Focus on whether the type of statement correctly reflects the content of the statement description."
+    )
+    
+    @model_validator(mode='before')
+    def check_confidence_score(cls, values):
+        confidence_score = values.get('confidence_score')
+        if confidence_score < 0 or confidence_score > 1:
+            raise ValueError("Confidence score must be between 0 and 1.")
+
+
+class StatementResults(BaseModel):
+    statements: List[BitcoinStatement] = Field(
         ...,
-        description="A detailed description of the event. This description should be informative \
-            and provide enough context for the event. This description field will be used later to extract structured data."
-    )
-    event_keywords: List[str] = Field(
-        description="Keywords related to the event. Avoid keywords with numerical values."
-    )
-
-    confidence_score: float = Field(
-        description="The confidence score of the event extraction. This should be a value between 0 and 1. \
-            Focus on whether the type of event correctly reflects the content of the event description."
-    )
-
-
-class BitcoinFilingEventsResult(BaseModel):
-    events: List[BitcoinEvent] = Field(
-        ...,
-        description="The list of extracted filing events. This can be an exhaustive list of all events related to bitcoin in the filing.",
+        description="The list of extracted statements, related to bitcoin, in the SEC Filing",
     )
     
 # Models for Bitcoin Treasury Updates

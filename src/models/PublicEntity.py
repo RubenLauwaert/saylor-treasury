@@ -12,7 +12,6 @@ from models.filing.SEC_Filing import SEC_Filing
 from models.filing.SEC_Form_Types import SEC_Form_Types
 
 from services.ai.bitcoin_events import *
-from services.ai.events_transformer import *
 from models.filing.Bitcoin_Filing import Bitcoin_Filing
 from models.util import *
 from collections import defaultdict
@@ -198,9 +197,12 @@ class PublicEntity(BaseModel):
     def get_bitcoin_filings(self) -> List[Bitcoin_Filing]:
         return self.bitcoin_filings
     
-    def get_bitcoin_filings_by_form_type(self, form_type: str) -> List[Bitcoin_Filing]:
-        return [ filing for filing in self.bitcoin_filings if filing.file_type == form_type]
+    def get_bitcoin_filings_by_file_type(self, file_type: str) -> List[Bitcoin_Filing]:
+        return [ filing for filing in self.bitcoin_filings if filing.file_type == file_type]
     
+    
+    def get_bitcoin_filings_by_form_type(self, form_type: str) -> List[Bitcoin_Filing]:
+        return [ filing for filing in self.bitcoin_filings if filing.form_type == form_type]
     
     # Setters
     
@@ -215,13 +217,17 @@ class PublicEntity(BaseModel):
         self.last_updated_bitcoin_filings = datetime.min
         
     
-    def reset_bitcoin_filings_parsed_states(self):
-        bitcoin_filings_reset = [ filing.reset_parsed_states() for filing in self.bitcoin_filings]
+    def reset_bitcoin_filings_all_states(self):
+        bitcoin_filings_reset = [ filing.reset_all_states() for filing in self.bitcoin_filings]
         self.bitcoin_filings = bitcoin_filings_reset
+        
+    def reset_bitcoin_filings_gen_ai_states(self):
+        self.bitcoin_filings = [ filing.reset_gen_ai_states() for filing in self.bitcoin_filings]
+        
         
     def reset_bitcoin_data(self):
         self.bitcoin_data = BitcoinData()
-        self.reset_bitcoin_filings_parsed_states()
+        self.reset_bitcoin_filings_all_states()
     # Updaters
     
     
@@ -286,7 +292,7 @@ class PublicEntity(BaseModel):
         # Logger
         logger = logging.getLogger(self.__class__.__name__)
         # Get official bitcoin holding statements for public entity
-        entity_tenqs = self.get_bitcoin_filings_by_form_type(form_type="10-Q")
+        entity_tenqs = self.get_bitcoin_filings_by_file_type(file_type="10-Q")
         unparsed_tenqs = [ tenq for tenq in entity_tenqs if not tenq.did_parse_xbrl]
         logger.info(f"Found {len(unparsed_tenqs)} 10-Q filings to extract XBRL facts for {self.ticker}")
         # urls necessary for retrieving xbrl content 
@@ -328,6 +334,61 @@ class PublicEntity(BaseModel):
     
     
     
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    async def extract_bitcoin_events_genai_eightks(self) -> "PublicEntity":
+        from services.throttler import ApiThrottler
+        from models.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
+        from services.ai.bitcoin_statements import BitcoinStatementsExtractor
+        # Retrieve 8-K Bitcoin filings where events are not already extracted (this includes EX-99.1 filings)
+        eightks = [ filing for filing in self.get_bitcoin_filings_by_form_type("8-K") if filing.did_extract_events_gen_ai == False] 
+        from_date = date(2024,1,1)
+        eightks_filtered = [ eightk for eightk in eightks if datetime.fromisoformat(eightk.file_date).date() >= from_date]
+      
+        # Retrieve content for eightks
+        content_result_eightks = await get_raw_content_text_for([eightk.url for eightk in eightks_filtered])
+        cleaned_content_eightks = [(content_result[0], Filing_Parser_Generic.get_cleaned_text(content_result[1])) for content_result in content_result_eightks if content_result[1] != ""]
+        
+        # Extract bitcoin statements from cleaned eightks
+        bitcoin_statements_extractor = BitcoinStatementsExtractor()
+        tasks = [lambda content=content: bitcoin_statements_extractor.extract_statements(content[1]) for content in cleaned_content_eightks]
+        extracted_results = await ApiThrottler.throttle_openai_requests(request_funcs=tasks)
+        print(extracted_results)
+            
+            
+            
+        
+        return self
+    
+    
+    
+    async def extract_bitcoin_holdings_gen_ai_eightks(self) -> "PublicEntity":
+
+        
+        
+        
+        return self
+    
+    
+    async def extract_gen_ai_bitcoin_data(self) -> "PublicEntity":
+
+
+        # TODO : Extract Bitcoin events from 8-K Bitcoin filings
+        
+        
+        
+        # TODO : Extract Bitcoin Holding Statements from 8-K Bitcoin filings
+    
+    
+        return self
     
     
     

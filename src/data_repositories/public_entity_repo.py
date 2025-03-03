@@ -175,7 +175,7 @@ class PublicEntityRepository:
         try:
             entities = self.get_entities_w_existing_ticker()
             for entity in entities:
-                entity.reset_bitcoin_filings_parsed_states()
+                entity.reset_bitcoin_filings_all_states()
             self.add_entities(entities)
             self.logger.info(f"Reset bitcoin filing parsed states for all entities")
             return True
