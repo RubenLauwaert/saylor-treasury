@@ -258,6 +258,10 @@ class PublicEntity(BaseModel):
     def reset_bitcoin_data(self):
         self.bitcoin_data = BitcoinData()
         self.reset_bitcoin_filings_all_states()
+        
+    def reset_bitcoin_data_gen_ai(self):
+        self.bitcoin_data.bitcoin_statements_gen_ai = []
+      
 
     # Updaters
 
@@ -393,53 +397,29 @@ class PublicEntity(BaseModel):
         eightks = [
             filing
             for filing in self.get_bitcoin_filings_by_form_type("8-K")
-            if filing.did_extract_events_gen_ai == False
+            if (filing.file_type == "8-K" or filing.file_type == "EX-99.1") and date.fromisoformat(filing.file_date) > date(2024,1,1)
         ]
-        from_date = date(2024, 1, 1)
-        eightks_filtered = [
-            eightk
-            for eightk in eightks
-            if datetime.fromisoformat(eightk.file_date).date() >= from_date
+            
+        eightks_already_extracted = self.bitcoin_data.get_eightks_parsed()
+        eightks_to_extract = [
+            filing
+            for filing in eightks
+            if filing.url not in [filing.url for filing in eightks_already_extracted]
         ]
-
-        # Retrieve content for eightks
-        content_result_eightks = await get_raw_content_text_for(
-            [eightk.url for eightk in eightks_filtered]
-        )
-
-        # With this updated version that includes the Bitcoin Filing
-        tuple_filing_cleaned_content: List[tuple[Bitcoin_Filing, str]] = []
-        for content_result in content_result_eightks:
-            if content_result[1] != "":
-                url = content_result[0]
-                cleaned_content = Filing_Parser_Generic.get_cleaned_text(
-                    content_result[1]
-                )
-                # Find the corresponding Bitcoin_Filing object based on the URL
-                filing = next(
-                    (filing for filing in eightks_filtered if filing.url == url), None
-                )
-                if filing:
-                    tuple_filing_cleaned_content.append((filing, cleaned_content))
-
-        # Extract bitcoin statements from cleaned eightks
-        bitcoin_statements_extractor = BitcoinStatementsExtractor()
-        tasks = [
-            lambda content=filing_content_tuple: bitcoin_statements_extractor.extract_statements(
-                filing=filing_content_tuple[0], raw_text=filing_content_tuple[1]
-            )
-            for filing_content_tuple in tuple_filing_cleaned_content
-        ]
-        extracted_results = await ApiThrottler.throttle_openai_requests(
-            request_funcs=tasks
-        )
+        print(len(eightks),len(eightks_already_extracted),len(eightks_to_extract))
         
-        bitcoin_statements = [
-            StatementResult_GEN_AI(filing=result[0], statement=result[1])
-            for result in extracted_results
-        ]
+        # Retrieve content of those 8-K filings
+        raw_contents = await get_raw_content_text_for([filing.url for filing in eightks_to_extract])
+        cleaned_contents = [Filing_Parser_Generic.get_cleaned_text(content[1]) for content in raw_contents]
         
-        self.bitcoin_data.append_bitcoin_statements(bitcoin_statements)
+        # Async GenAI tasks
+        extractor = BitcoinStatementsExtractor()
+        gen_ai_tasks = [lambda cleaned_content=cleaned_content: extractor.extract_statements( raw_text=cleaned_content) for cleaned_content in cleaned_contents]
+        gen_ai_results: List[StatementResults] = await ApiThrottler.throttle_openai_requests(request_funcs=gen_ai_tasks)
+        
+        for filing, statement_result in zip(eightks_to_extract, gen_ai_results):
+            gen_ai_statement_result = StatementResult_GEN_AI(filing=filing, statements=statement_result.statements)
+            self.bitcoin_data.append_bitcoin_statement_gen_ai(gen_ai_statement_result)
 
         return self
 

@@ -65,10 +65,9 @@ class BitcoinStatementsExtractor:
     # FILE: src/services/ai/bitcoin_statements.py
 
     async def extract_statements(
-        self, filing: Bitcoin_Filing, raw_text: str
-    ) -> tuple[Bitcoin_Filing, Optional[StatementResults]]:
+        self, raw_text: str
+    ) -> Optional[StatementResults]:
         self.logger.info(f"Extracting Bitcoin statements from 8-K filing...")
-        self.logger.info(f"{filing}")
         try:
             # OpenAI API Call with JSON response format
             chat_completion = await self.client.beta.chat.completions.parse(
@@ -82,16 +81,15 @@ class BitcoinStatementsExtractor:
                 ],
                 response_format=StatementResults,
             )
-            filing.did_extract_events_gen_ai = True
             # Extract the response content
             response_content = chat_completion.choices[0].message.parsed
             if response_content:
                 self.logger.info("Bitcoin statements extracted successfully.")
-                return (filing, response_content)
+                return response_content
             if not response_content:
                 self.logger.error("OpenAI response content is empty or None.")
-                return (filing, [])
+                return None
 
         except Exception as e:
             self.logger.error(f"Error extracting events: {e}")
-            return (filing, [])
+            return None

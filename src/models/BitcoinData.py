@@ -15,7 +15,7 @@ class BitcoinData(BaseModel):
     )
 
     # Information extracted out of bitcoin filings with Generative AI
-    bitcoin_statements: List[StatementResult_GEN_AI] = Field(
+    bitcoin_statements_gen_ai: List[StatementResult_GEN_AI] = Field(
         default=[],
         description="The list of bitcoin statements extracted with Generative AI",
     )
@@ -91,11 +91,22 @@ class BitcoinData(BaseModel):
 
         return self.fair_value_statements_xbrl
 
-    def append_bitcoin_statements(
+    def append_bitcoin_statements_gen_ai(
         self, bitcoin_statements: List[StatementResult_GEN_AI]
     ):
         for statement in bitcoin_statements:
-            self.bitcoin_statements.append(statement)
+            self.bitcoin_statements_gen_ai.append(statement)
 
-    def append_bitcoin_statement(self, bitcoin_statement: StatementResult_GEN_AI):
-        self.bitcoin_statements.append(bitcoin_statement)
+    def append_bitcoin_statement_gen_ai(self, bitcoin_statement: StatementResult_GEN_AI):
+        
+        if bitcoin_statement.filing.url in [statement.filing.url for statement in self.bitcoin_statements_gen_ai]:
+            return
+        self.bitcoin_statements_gen_ai.append(bitcoin_statement)
+        
+    # Getters
+    
+    def get_eightks_parsed(self) -> List[Bitcoin_Filing]:
+        filings_extracted_statements = [ statement_result.filing for statement_result in self.bitcoin_statements_gen_ai]
+        return filings_extracted_statements
+        
+        

@@ -138,7 +138,7 @@ class StatementResults(BaseModel):
 
 
 class StatementResult_GEN_AI(BaseModel):
-    statement: BitcoinStatement
+    statements: List[BitcoinStatement] = Field(default=[])
     filing: Bitcoin_Filing
 
 
