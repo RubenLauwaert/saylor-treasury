@@ -29,10 +29,13 @@ async def main():
     # await dbu.extract_tenq_xbrl_facts()
 
     # Get entity
-    entity = entity_repo.get_entity_by_ticker("MSTR")
+    entity = entity_repo.get_entity_by_ticker("MARA")
+    dbu.reset_gen_ai_bitcoin_data()
+    await dbu.sync_gen_ai_statements()
+    print(entity.get_ai_generated_holding_statements())
     # entity.reset_bitcoin_data_gen_ai()
     # entity_repo.add_entity(entity)
-    await entity_repo.update_gen_ai_statements_for(public_entity=entity)
-    await entity_repo.update_gen_ai_holding_statements(entity)
+    # await dbu.sync_gen_ai_statements()
+
 
 asyncio.run(main())

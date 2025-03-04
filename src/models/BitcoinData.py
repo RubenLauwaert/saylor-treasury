@@ -97,25 +97,55 @@ class BitcoinData(BaseModel):
         for statement in bitcoin_statements:
             self.general_bitcoin_statements_gen_ai.append(statement)
 
-    def append_bitcoin_statement_gen_ai(self, bitcoin_statement: StatementResult_GEN_AI):
-        
-        if bitcoin_statement.filing.url in [statement.filing.url for statement in self.general_bitcoin_statements_gen_ai]:
+    def append_bitcoin_statement_gen_ai(
+        self, bitcoin_statement: StatementResult_GEN_AI
+    ):
+
+        if bitcoin_statement.filing.url in [
+            statement.filing.url for statement in self.general_bitcoin_statements_gen_ai
+        ]:
             return
         self.general_bitcoin_statements_gen_ai.append(bitcoin_statement)
-        
-    def append_holding_statement_gen_ai(self, holding_statement: HoldingStatementResult_GEN_AI):
-        if holding_statement.filing.url in [statement.filing.url for statement in self.holding_statements_gen_ai]:
+
+    def append_holding_statement_gen_ai(
+        self, holding_statement: HoldingStatementResult_GEN_AI
+    ):
+        if holding_statement.filing.url in [
+            statement.filing.url for statement in self.holding_statements_gen_ai
+        ]:
             return
         self.holding_statements_gen_ai.append(holding_statement)
-        
+
     # Getters
-    
+
     def get_eightks_parsed_general(self) -> List[Bitcoin_Filing]:
-        filings_extracted_statements = [ statement_result.filing for statement_result in self.general_bitcoin_statements_gen_ai]
+        filings_extracted_statements = [
+            statement_result.filing
+            for statement_result in self.general_bitcoin_statements_gen_ai
+        ]
         return filings_extracted_statements
-    
+
     def get_eightks_parsed_holding_statements(self) -> List[Bitcoin_Filing]:
-        filings_extracted_statements = [ statement_result.filing for statement_result in self.holding_statements_gen_ai]
+        filings_extracted_statements = [
+            statement_result.filing
+            for statement_result in self.holding_statements_gen_ai
+        ]
         return filings_extracted_statements
-        
-        
+
+    def get_high_confidence_holding_disclosures(
+        self,
+    ) -> List[BitcoinHoldingsDisclosure_GEN_AI]:
+        high_confidence_statements = [
+            statement
+            for statement in self.holding_statements_gen_ai
+            if len(statement.statements) > 0
+            and statement.statements[0].confidence_score > 0.9
+        ]
+        print(high_confidence_statements)
+        disclosures: List[BitcoinHoldingsDisclosure_GEN_AI] = []
+        for statement in high_confidence_statements:
+            disclosure = statement.statements[0]
+            if disclosure.date is None:
+                disclosure.date = statement.filing.file_date
+            disclosures.extend(statement.statements)
+        return disclosures
