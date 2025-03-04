@@ -15,11 +15,11 @@ class BitcoinData(BaseModel):
     )
 
     # Information extracted out of bitcoin filings with Generative AI
-    bitcoin_statements_gen_ai: List[StatementResult_GEN_AI] = Field(
+    general_bitcoin_statements_gen_ai: List[StatementResult_GEN_AI] = Field(
         default=[],
         description="The list of bitcoin statements extracted with Generative AI",
     )
-    holding_statements_gen_ai: List[BitcoinHoldingsStatement] = Field(
+    holding_statements_gen_ai: List[HoldingStatementResult_GEN_AI] = Field(
         default=[],
         description="The list of official bitcoin holdings statements, extracted from parsed (8K's) filings with Generative AI",
     )
@@ -95,18 +95,27 @@ class BitcoinData(BaseModel):
         self, bitcoin_statements: List[StatementResult_GEN_AI]
     ):
         for statement in bitcoin_statements:
-            self.bitcoin_statements_gen_ai.append(statement)
+            self.general_bitcoin_statements_gen_ai.append(statement)
 
     def append_bitcoin_statement_gen_ai(self, bitcoin_statement: StatementResult_GEN_AI):
         
-        if bitcoin_statement.filing.url in [statement.filing.url for statement in self.bitcoin_statements_gen_ai]:
+        if bitcoin_statement.filing.url in [statement.filing.url for statement in self.general_bitcoin_statements_gen_ai]:
             return
-        self.bitcoin_statements_gen_ai.append(bitcoin_statement)
+        self.general_bitcoin_statements_gen_ai.append(bitcoin_statement)
+        
+    def append_holding_statement_gen_ai(self, holding_statement: HoldingStatementResult_GEN_AI):
+        if holding_statement.filing.url in [statement.filing.url for statement in self.holding_statements_gen_ai]:
+            return
+        self.holding_statements_gen_ai.append(holding_statement)
         
     # Getters
     
-    def get_eightks_parsed(self) -> List[Bitcoin_Filing]:
-        filings_extracted_statements = [ statement_result.filing for statement_result in self.bitcoin_statements_gen_ai]
+    def get_eightks_parsed_general(self) -> List[Bitcoin_Filing]:
+        filings_extracted_statements = [ statement_result.filing for statement_result in self.general_bitcoin_statements_gen_ai]
+        return filings_extracted_statements
+    
+    def get_eightks_parsed_holding_statements(self) -> List[Bitcoin_Filing]:
+        filings_extracted_statements = [ statement_result.filing for statement_result in self.holding_statements_gen_ai]
         return filings_extracted_statements
         
         

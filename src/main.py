@@ -32,6 +32,7 @@ async def main():
     entity = entity_repo.get_entity_by_ticker("MSTR")
     # entity.reset_bitcoin_data_gen_ai()
     # entity_repo.add_entity(entity)
-    await entity_repo.update_gen_ai_statements_for(entity)
+    await entity_repo.update_gen_ai_statements_for(public_entity=entity)
+    await entity_repo.update_gen_ai_holding_statements(entity)
 
 asyncio.run(main())

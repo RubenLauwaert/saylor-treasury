@@ -251,3 +251,16 @@ class PublicEntityRepository:
                 f"Error updating bitcoin data for entity: {public_entity.name} : {e}"
             )
             return False
+        
+    async def update_gen_ai_holding_statements(self, public_entity: PublicEntity) -> bool:
+        
+        try:
+            updated_entity = await public_entity.extract_bitcoin_holdings_gen_ai_eightks()
+            self.add_entity(updated_entity)
+            self.logger.info(f"Updated bitcoin data for entity: {public_entity.name}")
+            return True
+        except Exception as e:
+            self.logger.error(
+                f"Error updating bitcoin data for entity: {public_entity.name} : {e}"
+            )
+            return False

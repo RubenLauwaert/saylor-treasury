@@ -260,7 +260,7 @@ class PublicEntity(BaseModel):
         self.reset_bitcoin_filings_all_states()
         
     def reset_bitcoin_data_gen_ai(self):
-        self.bitcoin_data.bitcoin_statements_gen_ai = []
+        self.bitcoin_data.general_bitcoin_statements_gen_ai = []
       
 
     # Updaters
@@ -393,38 +393,64 @@ class PublicEntity(BaseModel):
         from models.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
         from services.ai.bitcoin_statements import BitcoinStatementsExtractor
 
+    
         # Retrieve 8-K Bitcoin filings where events are not already extracted (this includes EX-99.1 filings)
         eightks = [
             filing
             for filing in self.get_bitcoin_filings_by_form_type("8-K")
             if (filing.file_type == "8-K" or filing.file_type == "EX-99.1") and date.fromisoformat(filing.file_date) > date(2024,1,1)
         ]
-            
-        eightks_already_extracted = self.bitcoin_data.get_eightks_parsed()
+      
+        eightks_already_extracted = self.bitcoin_data.get_eightks_parsed_general()
         eightks_to_extract = [
             filing
             for filing in eightks
             if filing.url not in [filing.url for filing in eightks_already_extracted]
         ]
-        print(len(eightks),len(eightks_already_extracted),len(eightks_to_extract))
         
-        # Retrieve content of those 8-K filings
-        raw_contents = await get_raw_content_text_for([filing.url for filing in eightks_to_extract])
-        cleaned_contents = [Filing_Parser_Generic.get_cleaned_text(content[1]) for content in raw_contents]
+        if len(eightks_to_extract) > 0:
+            # Retrieve content of those 8-K filings
+            raw_contents = await get_raw_content_text_for([filing.url for filing in eightks_to_extract])
+            cleaned_contents = [Filing_Parser_Generic.get_cleaned_text(content[1]) for content in raw_contents]
+            # Async GenAI tasks
+            extractor = BitcoinStatementsExtractor()
+            gen_ai_tasks = [lambda cleaned_content=cleaned_content: extractor.extract_statements( raw_text=cleaned_content) for cleaned_content in cleaned_contents]
+            gen_ai_results: List[StatementResults] = await ApiThrottler.throttle_openai_requests(request_funcs=gen_ai_tasks)
+            
+            for filing, statement_result in zip(eightks_to_extract, gen_ai_results):
+                gen_ai_statement_result = StatementResult_GEN_AI(filing=filing, statements=statement_result.statements)
+                self.bitcoin_data.append_bitcoin_statement_gen_ai(gen_ai_statement_result)
         
-        # Async GenAI tasks
-        extractor = BitcoinStatementsExtractor()
-        gen_ai_tasks = [lambda cleaned_content=cleaned_content: extractor.extract_statements( raw_text=cleaned_content) for cleaned_content in cleaned_contents]
-        gen_ai_results: List[StatementResults] = await ApiThrottler.throttle_openai_requests(request_funcs=gen_ai_tasks)
-        
-        for filing, statement_result in zip(eightks_to_extract, gen_ai_results):
-            gen_ai_statement_result = StatementResult_GEN_AI(filing=filing, statements=statement_result.statements)
-            self.bitcoin_data.append_bitcoin_statement_gen_ai(gen_ai_statement_result)
-
         return self
 
     async def extract_bitcoin_holdings_gen_ai_eightks(self) -> "PublicEntity":
-
+        from services.throttler import ApiThrottler
+        from services.ai.bitcoin_statements import BitcoinStatementsExtractor
+        
+        # Retrieve all eight-k filings where general statements are extracted  and holdings are not 
+        eightks_parsed_general = self.bitcoin_data.get_eightks_parsed_general()
+        eightks_parsed_holdings = self.bitcoin_data.get_eightks_parsed_holding_statements()
+        not_yet_extracted_holdings = [
+            filing
+            for filing in eightks_parsed_general
+            if filing.url not in eightks_parsed_holdings
+        ]
+        print(not_yet_extracted_holdings)
+        if len(not_yet_extracted_holdings) > 0:
+                # Extract holding statements
+                general_statements = [statement for statement in self.bitcoin_data.general_bitcoin_statements_gen_ai if statement.filing.url in [filing.url for filing in not_yet_extracted_holdings]]
+                extractor = BitcoinStatementsExtractor()
+                tasks = [lambda statement=statement: extractor.extract_holding_statements(statement.statements) for statement in general_statements]
+                gen_ai_holding_results: List[HoldingStatementsResult] = await ApiThrottler.throttle_openai_requests(request_funcs=tasks)
+                filing_holding_statements = list(zip(not_yet_extracted_holdings, gen_ai_holding_results))
+                
+                for filing, holding_statements_result in filing_holding_statements:
+                    self.bitcoin_data.append_holding_statement_gen_ai(
+                        HoldingStatementResult_GEN_AI(
+                            statements=holding_statements_result.holding_statements,
+                            filing=filing
+                        )
+                    )                   
         return self
 
     async def extract_gen_ai_bitcoin_data(self) -> "PublicEntity":

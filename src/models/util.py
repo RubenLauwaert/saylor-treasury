@@ -89,9 +89,23 @@ class BitcoinHoldingsDisclosure_GEN_AI(BaseModel):
     unit: Literal["BTC", "USD"] = Field(
         description="The unit of the amount of bitcoin disclosed in the filing."
     )
-    report_date: Optional[str] = Field(
-        description="The date of the report. This date should be in the format YYYY-MM-DD."
+    date: Optional[str] = Field(
+        description="The date belonging to the bitcoin holdings disclosure.  \
+            This date should be in the format YYYY-MM-DD."
     )
+    confidence_score: float = Field(
+        ..., description="The confidence score of the bitcoin holdings disclosure."
+    )
+
+    @model_validator(mode="before")
+    def check_confidence_score(cls, values):
+        confidence_score = values.get("confidence_score")
+        if confidence_score is not None and (
+            confidence_score < 0 or confidence_score > 1
+        ):
+            raise ValueError("Confidence score must be between 0 and 1.")
+        return values
+
 
 
 # File: models/util.py
@@ -135,10 +149,17 @@ class StatementResults(BaseModel):
         ...,
         description="The list of extracted statements, related to bitcoin, in the SEC Filing",
     )
+    
+class HoldingStatementsResult(BaseModel):
+    holding_statements: List[BitcoinHoldingsDisclosure_GEN_AI] = Field(..., description="The list of extracted bitcoin holdings disclosures.")
 
 
 class StatementResult_GEN_AI(BaseModel):
     statements: List[BitcoinStatement] = Field(default=[])
+    filing: Bitcoin_Filing
+    
+class HoldingStatementResult_GEN_AI(BaseModel):
+    statements: List[BitcoinHoldingsDisclosure_GEN_AI] = Field(default=[])
     filing: Bitcoin_Filing
 
 
