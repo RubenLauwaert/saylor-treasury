@@ -433,9 +433,9 @@ class PublicEntity(BaseModel):
         not_yet_extracted_holdings = [
             filing
             for filing in eightks_parsed_general
-            if filing.url not in eightks_parsed_holdings
+            if filing.url not in [eightks_parsed_holdings.url for eightks_parsed_holdings in eightks_parsed_holdings]
         ]
-        print(not_yet_extracted_holdings)
+        print(len(not_yet_extracted_holdings))
         if len(not_yet_extracted_holdings) > 0:
                 # Extract holding statements
                 general_statements = [statement for statement in self.bitcoin_data.general_bitcoin_statements_gen_ai if statement.filing.url in [filing.url for filing in not_yet_extracted_holdings]]
