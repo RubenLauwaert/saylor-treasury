@@ -92,9 +92,9 @@ class BitcoinData(BaseModel):
         return self.fair_value_statements_xbrl
 
     def append_bitcoin_statements(
-        self, bitcoin_statement: List[StatementResult_GEN_AI]
+        self, bitcoin_statements: List[StatementResult_GEN_AI]
     ):
-        for statement in bitcoin_statement:
+        for statement in bitcoin_statements:
             self.bitcoin_statements.append(statement)
 
     def append_bitcoin_statement(self, bitcoin_statement: StatementResult_GEN_AI):

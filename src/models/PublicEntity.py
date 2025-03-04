@@ -433,10 +433,12 @@ class PublicEntity(BaseModel):
         extracted_results = await ApiThrottler.throttle_openai_requests(
             request_funcs=tasks
         )
+        
         bitcoin_statements = [
-            StatementResult_GEN_AI(statement=result[0], filing=result[1])
+            StatementResult_GEN_AI(filing=result[0], statement=result[1])
             for result in extracted_results
         ]
+        
         self.bitcoin_data.append_bitcoin_statements(bitcoin_statements)
 
         return self

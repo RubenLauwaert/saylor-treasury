@@ -84,7 +84,7 @@ class BitcoinStatementsExtractor:
             )
             filing.did_extract_events_gen_ai = True
             # Extract the response content
-            response_content = chat_completion.choices[0].message.content
+            response_content = chat_completion.choices[0].message.parsed
             if response_content:
                 self.logger.info("Bitcoin statements extracted successfully.")
                 return (filing, response_content)
