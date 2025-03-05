@@ -298,7 +298,9 @@ class PublicEntity(BaseModel):
         # Add the new bitcoin filings to the entity
         self.bitcoin_filings.extend(new_bitcoin_filings)
         self.last_updated_bitcoin_filings = datetime.now()
-
+        logger.database(
+            f"Found {len(new_bitcoin_filings)} new Bitcoin filings to add to databse for {self.ticker}"
+        )
         return self
 
     # Updates the bitcoin data for the entity
@@ -312,7 +314,7 @@ class PublicEntity(BaseModel):
         # Get official bitcoin holding statements for public entity
         entity_tenqs = self.get_bitcoin_filings_by_file_type(file_type="10-Q")
         unparsed_tenqs = [tenq for tenq in entity_tenqs if not tenq.did_parse_xbrl]
-        logger.info(
+        logger.database(
             f"Found {len(unparsed_tenqs)} 10-Q filings to extract XBRL facts for {self.ticker}"
         )
         # urls necessary for retrieving xbrl content
@@ -379,6 +381,9 @@ class PublicEntity(BaseModel):
         from models.parsers.generic.Filing_Parser_Generic import Filing_Parser_Generic
         from services.ai.bitcoin_statements import BitcoinStatementsExtractor
 
+        # Logger
+        logger = logging.getLogger(self.__class__.__name__)
+
         # Retrieve 8-K Bitcoin filings where events are not already extracted (this includes EX-99.1 filings)
         eightks = [
             filing
@@ -393,7 +398,9 @@ class PublicEntity(BaseModel):
             for filing in eightks
             if filing.url not in [filing.url for filing in eightks_already_extracted]
         ]
-
+        logger.database(
+            f"Found {len(eightks_to_extract)} new 8-K Bitcoin filings to extract statements from for {self.ticker}"
+        )
         if len(eightks_to_extract) > 0:
             # Retrieve content of those 8-K filings
             raw_contents = await get_raw_content_text_for(

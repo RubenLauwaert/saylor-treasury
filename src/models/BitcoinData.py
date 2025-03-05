@@ -127,6 +127,20 @@ class BitcoinData(BaseModel):
 
     # Getters
 
+    def get_tenqs_parsed(self) -> List[Bitcoin_Filing]:
+        filings_parsed_holdings_xbrl = [
+            statement_result.filing for statement_result in self.holding_statements_xbrl
+        ]
+        filings_parsed_fair_value_xbrl = [
+            statement_result.filing
+            for statement_result in self.fair_value_statements_xbrl
+        ]
+        unique_filings = {
+            filing.url: filing
+            for filing in filings_parsed_holdings_xbrl + filings_parsed_fair_value_xbrl
+        }
+        return list(unique_filings.values())
+
     def get_eightks_parsed_general(self) -> List[Bitcoin_Filing]:
         filings_extracted_statements = [
             statement_result.filing

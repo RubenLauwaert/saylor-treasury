@@ -65,15 +65,15 @@ class XBRL_Extractor:
 
     def extract_total_bitcoin_holdings_tag(self, xbrl_tags: set[str]) -> TagResult:
         user_prompt = self.generate_prompt_bitcoin_holdings(xbrl_tags)
-        return self.extract_tag(xbrl_tags, user_prompt)
+        return self.extract_tag(user_prompt)
 
     def extract_total_bitcoin_fair_value_tag(self, xbrl_tags: set[str]) -> TagResult:
         user_prompt = self.generate_prompt_bitcoin_fair_value(xbrl_tags)
-        return self.extract_tag(xbrl_tags, user_prompt)
+        return self.extract_tag(user_prompt)
 
     def extract_total_bitcoin__cost_basis_tag(self, xbrl_tags: set[str]) -> TagResult:
         user_prompt = self.generate_prompt_total_bitcoin_cost_basis(xbrl_tags)
-        return self.extract_tag(xbrl_tags, user_prompt)
+        return self.extract_tag(user_prompt)
 
     # Prompt generators
 

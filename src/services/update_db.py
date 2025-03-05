@@ -70,7 +70,9 @@ class DatabaseUpdater:
                 self.entity_repo.add_entities(new_entities)
             # Update the last synced entities timestamp
             self.util_repo.update_last_synced_entities(datetime.now())
-            self.logger.info(f"Synced {len(new_entity_ciks)} new entities.")
+            self.logger.db_update(
+                f"Added {len(new_entity_ciks)} new entities to the database."
+            )
 
             # After initializing db with the entities , append bitcoin entity tags to the entities
             await self.identify_bitcoin_tags()
@@ -93,6 +95,10 @@ class DatabaseUpdater:
         ]
         await ApiThrottler.throttle_requests(request_funcs=tasks)
 
+        self.logger.db_update(
+            f"Identified bitcoin tags for {len(entities_to_update)} new entities."
+        )
+
     async def sync_bitcoin_filings(self):
 
         # Only get entities with tickers
@@ -104,8 +110,9 @@ class DatabaseUpdater:
             for entity in public_entities
         ]
         public_entities = await ApiThrottler.throttle_requests(request_funcs=tasks)
+        self.logger.db_update("Synced bitcoin filings for all entities.")
 
-    async def extract_tenq_xbrl_facts(self):
+    async def sync_tenq_xbrl_facts(self):
         # Only get entities with tickers
         public_entities = self.entity_repo.get_entities_w_existing_ticker()
 
@@ -116,6 +123,7 @@ class DatabaseUpdater:
 
         for entity in public_entities:
             await self.entity_repo.update_tenq_xbrl_facts_for(entity)
+        self.logger.db_update("Extracted XBRL facts for all entities.")
 
     async def sync_gen_ai_statements(self):
         # Only get entities with an active treasury program
@@ -123,6 +131,7 @@ class DatabaseUpdater:
 
         for entity in public_entities:
             await self.entity_repo.update_gen_ai_statements_for(entity)
+        self.logger.db_update("Synced GenAI statements for all entities.")
 
     # Reset the gen_ai bitcoin_data for all entities
     def reset_gen_ai_bitcoin_data(self):
@@ -130,4 +139,4 @@ class DatabaseUpdater:
         for entity in entities:
             entity.reset_bitcoin_data_gen_ai()
             self.entity_repo.add_entity(entity)
-        self.logger.info("Reset GenAI bitcoin data for all entities.")
+        self.logger.db_update("Reset GenAI bitcoin data for all entities.")

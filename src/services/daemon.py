@@ -4,14 +4,36 @@ import logging
 import colorlog
 
 
-
 def setup_logging():
+    # Define custom log levels
+    DB_UPDATE = 25  # Between INFO (20) and WARNING (30)
+    DATABASE = 26  # Just after DB_UPDATE
+
+    # Add level names
+    logging.addLevelName(DB_UPDATE, "DB_UPDATE")
+    logging.addLevelName(DATABASE, "DATABASE")
+
+    # Add methods to the logger class for these custom levels
+    def db_update(self, message, *args, **kwargs):
+        if self.isEnabledFor(DB_UPDATE):
+            self._log(DB_UPDATE, message, args, **kwargs)
+
+    def database(self, message, *args, **kwargs):
+        if self.isEnabledFor(DATABASE):
+            self._log(DATABASE, message, args, **kwargs)
+
+    # Add the methods to the Logger class
+    logging.Logger.db_update = db_update
+    logging.Logger.database = database
+
     log_colors = {
         "DEBUG": "white",
         "INFO": "green",
         "WARNING": "yellow",
         "ERROR": "red",
         "CRITICAL": "bold_red",
+        "DATABASE": "blue",  # Regular blue for database operations
+        "DB_UPDATE": "bold_blue",  # Bold blue for database updates
     }
 
     formatter = colorlog.ColoredFormatter(
@@ -23,12 +45,17 @@ def setup_logging():
         style="%",
     )
 
-    handler = logging.StreamHandler()
+    # Set up the handler and logger
+    handler = colorlog.StreamHandler()
     handler.setFormatter(formatter)
 
-    logger = logging.getLogger()
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    # Configure the root logger
+    root_logger = logging.getLogger()
+    root_logger.addHandler(handler)
+
+    # Set level to DATABASE or DB_UPDATE level depending on which is lower
+    # This ensures both custom levels will be shown
+    root_logger.setLevel(min(DATABASE, DB_UPDATE))
 
 
 def run_daemon():
