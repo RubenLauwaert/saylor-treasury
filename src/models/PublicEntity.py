@@ -294,13 +294,14 @@ class PublicEntity(BaseModel):
             for filing in all_bitcoin_filings
             if filing.url not in [bf.url for bf in self.bitcoin_filings]
         ]
+        if len(new_bitcoin_filings) > 0:
+            # Add the new bitcoin filings to the entity
+            self.bitcoin_filings.extend(new_bitcoin_filings)
+            self.last_updated_bitcoin_filings = datetime.now()
 
-        # Add the new bitcoin filings to the entity
-        self.bitcoin_filings.extend(new_bitcoin_filings)
-        self.last_updated_bitcoin_filings = datetime.now()
-        logger.database(
-            f"Found {len(new_bitcoin_filings)} new Bitcoin filings to add to databse for {self.ticker}"
-        )
+            logger.database(
+                f"Found {len(new_bitcoin_filings)} new Bitcoin filings to add to databse for {self.ticker}"
+            )
         return self
 
     # Updates the bitcoin data for the entity
@@ -314,68 +315,73 @@ class PublicEntity(BaseModel):
         # Get official bitcoin holding statements for public entity
         entity_tenqs = self.get_bitcoin_filings_by_file_type(file_type="10-Q")
         unparsed_tenqs = [tenq for tenq in entity_tenqs if not tenq.did_parse_xbrl]
-        logger.database(
-            f"Found {len(unparsed_tenqs)} 10-Q filings to extract XBRL facts for {self.ticker}"
-        )
-        # urls necessary for retrieving xbrl content
-        xbrl_urls = [tenq.url.replace(".htm", "_htm.xml") for tenq in unparsed_tenqs]
-        raw_xbrl_contents = await get_raw_content_text_for(xbrl_urls)
-        raw_xbrl_contents = [
-            content for content in raw_xbrl_contents if content[1] != ""
-        ]
-        # parsed xbrl contents
-        parsed_xbrl_contents = [
-            Parser10QXBRL(
-                xbrl_url=xbrl_content[0],
-                xbrl_string=xbrl_content[1],
-                ticker=self.ticker,
+
+        if len(unparsed_tenqs) > 0:
+
+            logger.database(
+                f"Found {len(unparsed_tenqs)} 10-Q filings to extract XBRL facts for {self.ticker}"
             )
-            for xbrl_content in raw_xbrl_contents
-        ]
-        # Extract bitcoin holdings from parsed xbrl content
-        tasks_holding_statements = [
-            lambda parsed_content=parsed_content: parsed_content.extract_bitcoin_holdings()
-            for parsed_content in parsed_xbrl_contents
-        ]
-        holding_results = await ApiThrottler.throttle_openai_requests(
-            request_funcs=tasks_holding_statements
-        )
-
-        # Remove duplicates from holding statements
-        for xbrl_url, holding_statements in holding_results:
-            original_url = xbrl_url.replace("_htm.xml", ".htm")
-            filing = [
-                filing for filing in unparsed_tenqs if filing.url == original_url
-            ][0]
-            filing.did_parse_xbrl = True
-            for statement in holding_statements:
-                self.bitcoin_data.append_holding_statement_xbrl(
-                    HoldingStatementTenQ(statement=statement, filing=filing)
+            # urls necessary for retrieving xbrl content
+            xbrl_urls = [
+                tenq.url.replace(".htm", "_htm.xml") for tenq in unparsed_tenqs
+            ]
+            raw_xbrl_contents = await get_raw_content_text_for(xbrl_urls)
+            raw_xbrl_contents = [
+                content for content in raw_xbrl_contents if content[1] != ""
+            ]
+            # parsed xbrl contents
+            parsed_xbrl_contents = [
+                Parser10QXBRL(
+                    xbrl_url=xbrl_content[0],
+                    xbrl_string=xbrl_content[1],
+                    ticker=self.ticker,
                 )
+                for xbrl_content in raw_xbrl_contents
+            ]
+            # Extract bitcoin holdings from parsed xbrl content
+            tasks_holding_statements = [
+                lambda parsed_content=parsed_content: parsed_content.extract_bitcoin_holdings()
+                for parsed_content in parsed_xbrl_contents
+            ]
+            holding_results = await ApiThrottler.throttle_openai_requests(
+                request_funcs=tasks_holding_statements
+            )
 
-        # TODO Extract Fair Value Statements for public entity
+            # Remove duplicates from holding statements
+            for xbrl_url, holding_statements in holding_results:
+                original_url = xbrl_url.replace("_htm.xml", ".htm")
+                filing = [
+                    filing for filing in unparsed_tenqs if filing.url == original_url
+                ][0]
+                filing.did_parse_xbrl = True
+                for statement in holding_statements:
+                    self.bitcoin_data.append_holding_statement_xbrl(
+                        HoldingStatementTenQ(statement=statement, filing=filing)
+                    )
 
-        tasks_fair_value_statements = [
-            lambda parsed_content=parsed_content: parsed_content.extract_bitcoin_fair_value()
-            for parsed_content in parsed_xbrl_contents
-        ]
-        fair_value_results = await ApiThrottler.throttle_openai_requests(
-            request_funcs=tasks_fair_value_statements
-        )
+            # TODO Extract Fair Value Statements for public entity
 
-        # Remove duplicates from fair value statements
-        for xbrl_url, fair_value_statements in fair_value_results:
-            original_url = xbrl_url.replace("_htm.xml", ".htm")
-            filing = [
-                filing for filing in unparsed_tenqs if filing.url == original_url
-            ][0]
-            for statement in fair_value_statements:
-                self.bitcoin_data.append_fair_value_statement_xbrl(
-                    FairValueStatementTenQ(statement=statement, filing=filing)
-                )
+            tasks_fair_value_statements = [
+                lambda parsed_content=parsed_content: parsed_content.extract_bitcoin_fair_value()
+                for parsed_content in parsed_xbrl_contents
+            ]
+            fair_value_results = await ApiThrottler.throttle_openai_requests(
+                request_funcs=tasks_fair_value_statements
+            )
 
-        for tenq in unparsed_tenqs:
-            tenq.did_parse_xbrl = True
+            # Remove duplicates from fair value statements
+            for xbrl_url, fair_value_statements in fair_value_results:
+                original_url = xbrl_url.replace("_htm.xml", ".htm")
+                filing = [
+                    filing for filing in unparsed_tenqs if filing.url == original_url
+                ][0]
+                for statement in fair_value_statements:
+                    self.bitcoin_data.append_fair_value_statement_xbrl(
+                        FairValueStatementTenQ(statement=statement, filing=filing)
+                    )
+
+            for tenq in unparsed_tenqs:
+                tenq.did_parse_xbrl = True
 
         return self
 
@@ -401,10 +407,11 @@ class PublicEntity(BaseModel):
             for filing in eightks
             if filing.url not in [filing.url for filing in eightks_already_extracted]
         ]
-        logger.database(
-            f"Found {len(eightks_to_extract)} new 8-K Bitcoin filings to extract statements from for {self.ticker}"
-        )
+
         if len(eightks_to_extract) > 0:
+            logger.database(
+                f"Found {len(eightks_to_extract)} new 8-K Bitcoin filings to extract statements from for {self.ticker}"
+            )
             # Retrieve content of those 8-K filings
             raw_contents = await get_raw_content_text_for(
                 [filing.url for filing in eightks_to_extract]

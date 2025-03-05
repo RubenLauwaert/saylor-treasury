@@ -1,30 +1,17 @@
-from services.daemon import setup_logging
-from services.update_db import DatabaseUpdater
+"""
+Saylor Treasury - Main Application
+---------------------------------
+This is the main entry point for the Saylor Treasury application.
+It starts the daemon process that automatically updates Bitcoin data regularly.
+"""
 
-from database import public_entity_collection
+from services.daemon import setup_logging, run_daemon
+import logging
 
-from data_repositories.public_entity_repo import PublicEntityRepository
-from config import sec_edgar_settings as ses
-import asyncio
-
-from datetime import date
-
-
+# Set up logging
 setup_logging()
+logger = logging.getLogger(__name__)
 
-
-# DatabaseUpdater
-dbu = DatabaseUpdater()
-
-# Public entity repo
-entity_repo = PublicEntityRepository()
-
-
-async def main():
-    # await dbu.sync_bitcoin_entities()
-    # await dbu.sync_bitcoin_filings()
-    await dbu.sync_tenq_xbrl_facts()
-    await dbu.sync_gen_ai_statements()
-
-
-asyncio.run(main())
+if __name__ == "__main__":
+    # Run the daemon process
+    run_daemon()
