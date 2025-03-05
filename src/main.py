@@ -29,10 +29,9 @@ async def main():
     # await dbu.extract_tenq_xbrl_facts()
 
     # Get entity
-    entity = entity_repo.get_entity_by_ticker("MARA")
-    dbu.reset_gen_ai_bitcoin_data()
+    # dbu.reset_gen_ai_bitcoin_data()
     await dbu.sync_gen_ai_statements()
-    print(entity.get_ai_generated_holding_statements())
+    # print(entity.get_ai_generated_holding_statements())
     # entity.reset_bitcoin_data_gen_ai()
     # entity_repo.add_entity(entity)
     # await dbu.sync_gen_ai_statements()

@@ -107,6 +107,36 @@ class BitcoinHoldingsDisclosure_GEN_AI(BaseModel):
         return values
 
 
+class TreasuryUpdateDisclosure_GEN_AI(BaseModel):
+    amount: float = Field(
+        description="The amount of bitcoin disclosed in the filing. The unit of this amount is preferred to be in BTC, if this is not available USD is also acceptable."
+    )
+
+    update_type: Literal["Purchase", "Sale"] = Field(
+        description="The type of the bitcoin treasury update: a purchase or sale of bitcoin"
+    )
+
+    unit: Literal["BTC", "USD"] = Field(
+        description="The unit of the amount of the treasury update disclosed in the filing."
+    )
+
+    date: Optional[str] = Field(
+        description="The date belonging to the purchase or sale .  \
+            This date should be in the format YYYY-MM-DD."
+    )
+    confidence_score: float = Field(
+        ..., description="The confidence score of the bitcoin holdings disclosure."
+    )
+
+    @model_validator(mode="before")
+    def check_confidence_score(cls, values):
+        confidence_score = values.get("confidence_score")
+        if confidence_score is not None and (
+            confidence_score < 0 or confidence_score > 1
+        ):
+            raise ValueError("Confidence score must be between 0 and 1.")
+        return values
+
 
 # File: models/util.py
 
@@ -149,118 +179,30 @@ class StatementResults(BaseModel):
         ...,
         description="The list of extracted statements, related to bitcoin, in the SEC Filing",
     )
-    
+
+
 class HoldingStatementsResult(BaseModel):
-    holding_statements: List[BitcoinHoldingsDisclosure_GEN_AI] = Field(..., description="The list of extracted bitcoin holdings disclosures.")
+    holding_statements: List[BitcoinHoldingsDisclosure_GEN_AI] = Field(
+        ..., description="The list of extracted bitcoin holdings disclosures."
+    )
+
+
+class TreasuryUpdateStatementsResult(BaseModel):
+    treasury_update_statements: List[TreasuryUpdateDisclosure_GEN_AI] = Field(
+        ..., description="The list of extracted bitcoin treasury updates."
+    )
 
 
 class StatementResult_GEN_AI(BaseModel):
     statements: List[BitcoinStatement] = Field(default=[])
     filing: Bitcoin_Filing
-    
+
+
 class HoldingStatementResult_GEN_AI(BaseModel):
     statements: List[BitcoinHoldingsDisclosure_GEN_AI] = Field(default=[])
     filing: Bitcoin_Filing
 
 
-# Models for Bitcoin Treasury Updates
-
-
-class BitcoinTreasuryUpdate(BaseModel):
-    type: Literal["Purchase", "Sale"]
-
-    bitcoin_amount: Optional[float] = Field(
-        None,
-        description="The amount of bitcoin acquired or sold. If this value is not explicitly stated in the input but inferred or calculated, set 'bitcoin_amount_filled_in' to True.",
-    )
-    average_price_per_bitcoin: Optional[int] = Field(
-        None,
-        description="The average price per bitcoin for the acquisition or sale. If this value is not explicitly stated in the input but inferred or calculated, set 'average_price_per_bitcoin_filled_in' to True.",
-    )
-    amount_in_usd: Optional[int] = Field(
-        None,
-        description="The total amount in USD spent or received for the acquisition or sale. If this value is not explicitly stated in the input but inferred or calculated, set 'amount_in_usd_filled_in' to True.",
-    )
-
-    @model_validator(mode="before")
-    def check_either_bitcoin_amount_or_amount_in_usd(cls, values):
-        bitcoin_amount = values.get("bitcoin_amount")
-        amount_in_usd = values.get("amount_in_usd")
-        average_price_per_bitcoin = values.get("average_price_per_bitcoin")
-
-        if bitcoin_amount is None:
-            raise ValueError("Bitcoin amount or amount in dollars must be present.")
-
-        return values
-
-
-class TotalBitcoinHoldings(BaseModel):
-    total_bitcoin_holdings: Optional[float] = Field(
-        ..., description="The total amount of bitcoin held by the entity"
-    )
-    average_price_per_bitcoin: Optional[int] = Field(
-        ..., description="The average price per bitcoin for the total bitcoin holdings"
-    )
-    total_amount_in_usd: Optional[int] = Field(
-        ...,
-        description="The total amount of dollars spent for the total bitcoin holdings",
-    )
-
-    @model_validator(mode="before")
-    def check_fields(cls, values):
-        total_bitcoin_holdings = values.get("total_bitcoin_holdings")
-        average_price_per_bitcoin = values.get("average_price_per_bitcoin")
-        total_amount_in_usd = values.get("total_amount_in_usd")
-
-        if total_bitcoin_holdings is None:
-            raise ValueError(
-                "The total amount of bitcoin held by the entity must be provided."
-            )
-
-        return values
-
-
-# Models for GenAI bitcoin holdings and treasury updates
-
-
-class GenAI_BitcoinTreasuryUpdateStatement(BaseModel):
-    # Data about the bitcoin treasury update
-    bitcoin_treasury_update: BitcoinTreasuryUpdate
-
-    # Data about the filing where the statement was found
-    filing_url: str
-    file_date: str
-    accession_number: str
-    form_type: str
-    file_type: str
-
-    # @classmethod
-    # def from_bitcoin_filing(cls, filing: Bitcoin_Filing) -> "GenAI_BitcoinTreasuryUpdateStatement":
-
-    #     return cls(bitcoin_treasury_update=filing.bitcoin_treasury_update,
-    #                filing_url=filing.url,
-    #                file_date=filing.file_date,
-    #                accession_number=filing.accession_number,
-    #                form_type=filing.form_type,
-    #                file_type=filing.file_type)
-
-
-class GenAI_BitcoinHoldingsStatement(BaseModel):
-    # Data about the bitcoin holdings
-    bitcoin_data: TotalBitcoinHoldings
-
-    # Data about the filing where the statement was found
-    filing_url: str
-    file_date: str
-    accession_number: str
-    form_type: str
-    file_type: str
-
-    # @classmethod
-    # def from_bitcoin_filing(cls, filing: Bitcoin_Filing) -> "GenAI_BitcoinHoldingsStatement":
-    #     return cls(bitcoin_data=filing.total_bitcoin_holdings,
-    #                filing_url=filing.url,
-    #                file_date=filing.file_date,
-    #                accession_number=filing.accession_number,
-    #                form_type=filing.form_type,
-    #                file_type=filing.file_type)
+class TreasuryUpdateStatementResult_GEN_AI(BaseModel):
+    statements: List[TreasuryUpdateDisclosure_GEN_AI] = Field(default=[])
+    filing: Bitcoin_Filing

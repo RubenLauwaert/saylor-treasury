@@ -8,7 +8,6 @@ from models.filing.sec_8k.Filing_8K import Filing_8K
 from models.filing.sec_424B5.Filing_424B5 import Filing_424B5
 from models.filing.sec_10q.Filing_10Q import Filing_10Q
 from pymongo.collection import Collection
-from queries import base_bitcoin_8k_company_query, base_bitcoin_balance_sheet_query
 from database import public_entity_collection
 from data_repositories.util_repo import UtilRepository
 from util import ImportantDates

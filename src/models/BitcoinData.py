@@ -23,7 +23,7 @@ class BitcoinData(BaseModel):
         default=[],
         description="The list of official bitcoin holdings statements, extracted from parsed (8K's) filings with Generative AI",
     )
-    treasury_updates_gen_ai: List[BitcoinTreasuryUpdate] = Field(
+    treasury_updates_gen_ai: List[TreasuryUpdateStatementResult_GEN_AI] = Field(
         default=[],
         description="The list of bitcoin treasury updates, extracted from parsed (8K's) filings with Generative AI",
     )
@@ -116,6 +116,15 @@ class BitcoinData(BaseModel):
             return
         self.holding_statements_gen_ai.append(holding_statement)
 
+    def append_treasury_update_gen_ai(
+        self, treasury_update_statement: TreasuryUpdateStatementResult_GEN_AI
+    ):
+        if treasury_update_statement.filing.url in [
+            statement.filing.url for statement in self.treasury_updates_gen_ai
+        ]:
+            return
+        self.treasury_updates_gen_ai.append(treasury_update_statement)
+
     # Getters
 
     def get_eightks_parsed_general(self) -> List[Bitcoin_Filing]:
@@ -131,6 +140,14 @@ class BitcoinData(BaseModel):
             for statement_result in self.holding_statements_gen_ai
         ]
         return filings_extracted_statements
+
+    def get_eightks_parsed_treasury_update_statements(self) -> List[Bitcoin_Filing]:
+        filings_extracted_statements = [
+            statement_result.filing for statement_result in self.treasury_updates_gen_ai
+        ]
+        return filings_extracted_statements
+
+    # Data getters and filters
 
     def get_high_confidence_holding_disclosures(
         self,

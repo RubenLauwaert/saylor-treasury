@@ -243,12 +243,16 @@ class PublicEntityRepository:
 
         try:
             # Update general statements for entity (Gen AI)
-            updated_entity = (
+            entity_w_general_statements = (
                 await public_entity.extract_general_statements_genai_eightks()
             )
             # Update parsed holding statements for entity (Gen AI)
+            entity_w_holding_statements = (
+                await entity_w_general_statements.extract_bitcoin_holdings_gen_ai_eightks()
+            )
+            # Update treasury update statemetns for entity (Gen AI)
             final_entity = (
-                await updated_entity.extract_bitcoin_holdings_gen_ai_eightks()
+                await entity_w_holding_statements.extract_treasury_updates_gen_ai()
             )
             self.add_entity(final_entity)
             self.logger.info(f"Updated bitcoin data for entity: {public_entity.name}")

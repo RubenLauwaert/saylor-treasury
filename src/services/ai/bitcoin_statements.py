@@ -12,6 +12,8 @@ from models.util import (
     BitcoinHoldingsDisclosure_GEN_AI,
     BitcoinStatement,
     HoldingStatementsResult,
+    TreasuryUpdateStatementResult_GEN_AI,
+    TreasuryUpdateStatementsResult,
 )
 from models.filing.Bitcoin_Filing import Bitcoin_Filing
 
@@ -182,4 +184,100 @@ class BitcoinStatementsExtractor:
 
         except Exception as e:
             self.logger.error(f"Error extracting events: {e}")
+            return None
+
+    async def extract_treasury_updates(
+        self, bitcoin_statements: List[BitcoinStatement]
+    ) -> Optional[TreasuryUpdateStatementsResult]:
+        # Retrieve the treasury update statements
+        treasury_update_statements = [
+            statement
+            for statement in bitcoin_statements
+            if statement.statement_type == StatementType.BITCOIN_PURCHASE_ANNOUNCEMENT
+            or statement.statement_type == StatementType.BITCOIN_PURCHASE_EXECUTED
+            or statement.statement_type == StatementType.BITCOIN_SALE
+        ]
+
+        # Skip if no relevant statements
+        if not treasury_update_statements:
+            self.logger.info("No treasury update statements found.")
+            return None
+
+        # Prompts for AI request
+        system_prompt = "You are an AI assistant that is used to extract structured output from statements extracted from SEC filings (8-K)."
+        user_prompt = (
+            "You will receive a list of bitcoin statements, each represented as an instance of the `BitcoinStatement` class, which includes:\n"
+            "- `statement_type`: The type of bitcoin statement.\n"
+            "- `statement_description`: A detailed textual description of the statement.\n"
+            "- `confidence_score`: The confidence level of the extracted statement.\n\n"
+            "Your task is to extract **bitcoin treasury updates** from these statements and return them as a list of `TreasuryUpdateDisclosure_GEN_AI` objects. Each extracted update should contain:\n\n"
+            "1. **amount**: The amount of bitcoin involved in the update.\n"
+            "   - Preferably extracted in **BTC**.\n"
+            "   - If BTC is not available, extract the amount in **USD**.\n\n"
+            "2. **update_type**: The type of treasury update.\n"
+            "   - Must be either **'Purchase'** or **'Sale'**.\n\n"
+            "3. **unit**: The unit of measurement of the amount.\n"
+            "   - Must be either **'BTC'** or **'USD'**.\n\n"
+            "4. **date** (optional): The date of the purchase or sale.\n"
+            "   - If a date is present in the statement, extract it.\n"
+            "   - Format the date as **YYYY-MM-DD**.\n\n"
+            "5. **confidence_score**: The confidence level of the extracted treasury update.\n"
+            "   - Based on the extraction you are performing now and not the confidence_score of the given BitcoinStatements.\n\n"
+            "### Guidelines for Extraction:\n"
+            "- AVOID quarterly or annual treasury updates such as : 'The fourth quarter of 2024 marked our largest ever increase in quarterly bitcoin holdings, culminating in the acquisition of 218,887 bitcoins acquired for $20.5 billion, since the end of Q3.'"
+            "- Focus on **completed transactions** for BITCOIN_PURCHASE_EXECUTED statements.\n"
+            "- For BITCOIN_PURCHASE_ANNOUNCEMENT statements, extract details of the announced purchase.\n"
+            "- Look for explicit amounts, prices, and dates in the statements.\n"
+            "- If a statement mentions both a BTC amount and a USD amount, prioritize the BTC amount.\n"
+            "- If multiple purchases/sales are mentioned in one statement, extract the most clearly defined one.\n"
+            "- Don't extract general treasury policy updates that don't involve specific purchases/sales.\n\n"
+            "### Response Format:\n"
+            "Your response should be a **structured JSON list** of `TreasuryUpdateDisclosure_GEN_AI` objects, where each object follows this format:\n\n"
+            "[\n"
+            "  {\n"
+            '    "amount": 100.5,\n'
+            '    "update_type": "Purchase",\n'
+            '    "unit": "BTC",\n'
+            '    "date": "2024-02-15",\n'
+            '    "confidence_score": 0.95\n'
+            "  },\n"
+            "  {\n"
+            '    "amount": 5000000,\n'
+            '    "update_type": "Sale",\n'
+            '    "unit": "USD",\n'
+            '    "date": "2023-12-01",\n'
+            '    "confidence_score": 0.88\n'
+            "  }\n"
+            "]\n\n"
+            "Ensure that all extracted data is as accurate as possible while maintaining the highest confidence in the updates. "
+            "Here is the list of BitcoinStatements, extracted from the 8-K filing: \n\n"
+        )
+
+        try:
+            # OpenAI API Call with JSON response format
+            chat_completion = await self.client.beta.chat.completions.parse(
+                model=self.structured_output_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": user_prompt + str(treasury_update_statements),
+                    },
+                ],
+                response_format=TreasuryUpdateStatementsResult,
+            )
+
+            # Extract the response content
+            response_content = chat_completion.choices[0].message.parsed
+            if response_content:
+                self.logger.info(
+                    "GenAI Bitcoin Treasury Updates extracted successfully."
+                )
+                return response_content
+            if not response_content:
+                self.logger.error("OpenAI response content is empty or None.")
+                return None
+
+        except Exception as e:
+            self.logger.error(f"Error extracting treasury updates: {e}")
             return None
