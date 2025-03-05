@@ -374,6 +374,9 @@ class PublicEntity(BaseModel):
                     FairValueStatementTenQ(statement=statement, filing=filing)
                 )
 
+        for tenq in unparsed_tenqs:
+            tenq.did_parse_xbrl = True
+
         return self
 
     async def extract_general_statements_genai_eightks(self) -> "PublicEntity":
