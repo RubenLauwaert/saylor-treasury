@@ -158,7 +158,7 @@ class BitcoinData(BaseModel):
             if len(statement.statements) > 0
             and statement.statements[0].confidence_score > 0.9
         ]
-        print(high_confidence_statements)
+
         disclosures: List[BitcoinHoldingsDisclosure_GEN_AI] = []
         for statement in high_confidence_statements:
             disclosure = statement.statements[0]

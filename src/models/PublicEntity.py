@@ -371,12 +371,7 @@ class PublicEntity(BaseModel):
                 self.bitcoin_data.append_fair_value_statement_xbrl(
                     FairValueStatementTenQ(statement=statement, filing=filing)
                 )
-            print(
-                [
-                    statement.statement
-                    for statement in self.bitcoin_data.fair_value_statements_xbrl
-                ]
-            )
+
         return self
 
     async def extract_general_statements_genai_eightks(self) -> "PublicEntity":
@@ -448,7 +443,6 @@ class PublicEntity(BaseModel):
                 for eightks_parsed_holdings in eightks_parsed_holdings
             ]
         ]
-        print(len(not_yet_extracted_holdings))
         if len(not_yet_extracted_holdings) > 0:
             # Extract holding statements
             general_statements = [
@@ -502,7 +496,6 @@ class PublicEntity(BaseModel):
                 for eightks_parsed_treasury_update in eightks_parsed_treasury_updates
             ]
         ]
-        print(len(filings_not_yet_extracted))
         if len(filings_not_yet_extracted) > 0:
             # Extract Treasury updates
             general_statements = [
@@ -537,7 +530,6 @@ class PublicEntity(BaseModel):
                             filing=filing,
                         )
                     )
-            print(filing_treasury_updates)
         return self
 
     async def extract_gen_ai_bitcoin_data(self) -> "PublicEntity":

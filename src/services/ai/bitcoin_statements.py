@@ -63,11 +63,7 @@ class BitcoinStatementsExtractor:
 
         try:
             self.client = openai_settings.get_async_client()
-            self.logger.info("AsyncOpenAI client initialized")
             self.structured_output_model = openai_settings.structured_output_model
-            self.logger.info(
-                f"Using structured output model: {self.structured_output_model}"
-            )
 
         except Exception as e:
             self.logger.error(f"Error initializing OpenAI API: {e}")
@@ -75,7 +71,6 @@ class BitcoinStatementsExtractor:
     # FILE: src/services/ai/bitcoin_statements.py
 
     async def extract_statements(self, raw_text: str) -> Optional[StatementResults]:
-        self.logger.info(f"Extracting Bitcoin statements from 8-K filing...")
         try:
             # OpenAI API Call with JSON response format
             chat_completion = await self.client.beta.chat.completions.parse(
@@ -96,7 +91,6 @@ class BitcoinStatementsExtractor:
             # Extract the response content
             response_content = chat_completion.choices[0].message.parsed
             if response_content:
-                self.logger.info("Bitcoin statements extracted successfully.")
                 return response_content
             if not response_content:
                 self.logger.error("OpenAI response content is empty or None.")
@@ -176,7 +170,6 @@ class BitcoinStatementsExtractor:
             # Extract the response content
             response_content = chat_completion.choices[0].message.parsed
             if response_content:
-                self.logger.info("GenAI Bitcoin Holdings extracted successfully.")
                 return response_content
             if not response_content:
                 self.logger.error("OpenAI response content is empty or None.")
@@ -200,7 +193,6 @@ class BitcoinStatementsExtractor:
 
         # Skip if no relevant statements
         if not treasury_update_statements:
-            self.logger.info("No treasury update statements found.")
             return None
 
         # Prompts for AI request
@@ -270,9 +262,6 @@ class BitcoinStatementsExtractor:
             # Extract the response content
             response_content = chat_completion.choices[0].message.parsed
             if response_content:
-                self.logger.info(
-                    "GenAI Bitcoin Treasury Updates extracted successfully."
-                )
                 return response_content
             if not response_content:
                 self.logger.error("OpenAI response content is empty or None.")
