@@ -8,6 +8,13 @@ from models.PublicEntity import PublicEntity
 from logging import Logger
 from database import public_entity_collection
 from models.util import BitcoinEntityTag
+from api.models.entities import (
+    EntitySummary,
+    EntityDetail,
+    BitcoinHolding,
+    TreasuryUpdate,
+    EntityList,
+)
 
 
 class PublicEntityRepository:
@@ -277,3 +284,196 @@ class PublicEntityRepository:
                 f"Error updating bitcoin data for entity: {public_entity.name} : {e}"
             )
             return False
+
+    ##################
+    #      API       #
+    ##################
+
+    ##################
+    #      API       #
+    ##################
+
+    def get_entities_summary_for_api(
+        self,
+        entity_type: Optional[str] = None,
+        sic: Optional[str] = None,
+        active_btc: Optional[bool] = None,
+    ) -> EntityList:
+        """
+        Get entities with projection optimized for summary view.
+        Returns EntityList model directly.
+        """
+        # Define query based on filters
+        query = {"ticker": {"$exists": True, "$ne": None}}
+
+        if active_btc:
+            query["bitcoin_entity_tags"] = {
+                "$in": [BitcoinEntityTag.ACTIVE_BTC_STRATEGY.value]
+            }
+        if entity_type:
+            query["entity_type"] = entity_type
+        if sic:
+            query["sic"] = sic
+
+        # Use projection to limit fields returned
+        projection = {
+            "name": 1,
+            "ticker": 1,
+            "cik": 1,
+            "bitcoin_entity_tags": 1,
+            "total_btc_holdings": 1,
+            "bitcoin_data.holding_statements_xbrl": {
+                "$slice": 1
+            },  # Just need to check if array exists and has items
+        }
+
+        # Execute query with projection
+        entity_dicts = self.collection.find(query, projection)
+
+        # Transform to API models directly
+        entity_summaries = []
+        for entity in entity_dicts:
+            entity_summaries.append(
+                EntitySummary(
+                    name=entity.get("name"),
+                    ticker=entity.get("ticker"),
+                    cik=entity.get("cik"),
+                    bitcoin_entity_tags=entity.get("bitcoin_entity_tags", []),
+                    bitcoin_holdings=entity.get("total_btc_holdings", 0.0),
+                    has_official_holdings=len(
+                        entity.get("bitcoin_data", {}).get(
+                            "holding_statements_xbrl", []
+                        )
+                    )
+                    > 0,
+                )
+            )
+
+        self.logger.database(
+            f"Retrieved {len(entity_summaries)} entities for API summary view"
+        )
+        return EntityList(count=len(entity_summaries), entities=entity_summaries)
+
+    def get_entity_detail_for_api(self, ticker: str) -> Optional[EntityDetail]:
+        """
+        Get entity detail by ticker, returning the API model directly.
+        """
+        projection = {
+            "name": 1,
+            "ticker": 1,
+            "cik": 1,
+            "entity_type": 1,
+            "sic": 1,
+            "sicDescription": 1,
+            "website": 1,
+            "bitcoin_entity_tags": 1,
+            "total_btc_holdings": 1,
+            "bitcoin_data.holding_statements_xbrl": 1,
+            "bitcoin_data.fair_value_statements_xbrl": 1,
+            "bitcoin_data.holding_statements_gen_ai": 1,
+            "bitcoin_data.treasury_updates_gen_ai": 1,
+        }
+
+        entity = self.collection.find_one({"ticker": ticker}, projection)
+
+        if not entity:
+            self.logger.warning(f"No entity found with ticker {ticker}")
+            return None
+
+        # Get filing count via aggregation
+        filing_count = (
+            self.collection.aggregate(
+                [
+                    {"$match": {"ticker": ticker}},
+                    {"$project": {"count": {"$size": "$bitcoin_filings"}}},
+                ]
+            )
+            .next()
+            .get("count", 0)
+        )
+
+        # Process holdings data
+        holdings = []
+        bitcoin_data = entity.get("bitcoin_data", {})
+
+        # Process official holdings
+        for holding_data in bitcoin_data.get("holding_statements_xbrl", []):
+            holdings.append(
+                BitcoinHolding(
+                    amount=holding_data.get("statement", {}).get("amount"),
+                    unit=holding_data.get("statement", {}).get("unit"),
+                    date_of_disclosure=holding_data.get("statement", {}).get(
+                        "report_date"
+                    ),
+                    filing_url=holding_data.get("filing", {}).get("url"),
+                    file_date=holding_data.get("filing", {}).get("file_date"),
+                    source="Official",
+                )
+            )
+
+        # Process AI-generated holdings
+        for holding_result in bitcoin_data.get("holding_statements_gen_ai", []):
+            for statement in holding_result.get("statements", []):
+                holdings.append(
+                    BitcoinHolding(
+                        amount=statement.get("amount"),
+                        unit=statement.get("unit"),
+                        date_of_disclosure=statement.get("date"),
+                        filing_url=holding_result.get("filing", {}).get("url"),
+                        file_date=holding_result.get("filing", {}).get("file_date"),
+                        source="AI",
+                        confidence_score=statement.get("confidence_score"),
+                    )
+                )
+
+        # Process treasury updates
+        treasury_updates = []
+        for update_result in bitcoin_data.get("treasury_updates_gen_ai", []):
+            for update in update_result.get("statements", []):
+                treasury_updates.append(
+                    TreasuryUpdate(
+                        amount=update.get("amount"),
+                        update_type=update.get("update_type"),
+                        unit=update.get("unit"),
+                        date=update.get("date"),
+                        filing_url=update_result.get("filing", {}).get("url"),
+                        file_date=update_result.get("filing", {}).get("file_date"),
+                        confidence_score=update.get("confidence_score"),
+                    )
+                )
+
+        # Return the fully constructed EntityDetail model
+        self.logger.database(f"Found entity with ticker {ticker} for API detail view")
+        return EntityDetail(
+            name=entity.get("name"),
+            ticker=entity.get("ticker"),
+            cik=entity.get("cik"),
+            entity_type=entity.get("entity_type"),
+            sic=entity.get("sic"),
+            sic_description=entity.get("sicDescription"),
+            website=entity.get("website"),
+            bitcoin_entity_tags=entity.get("bitcoin_entity_tags", []),
+            summary={
+                "total_btc_holdings": entity.get("total_btc_holdings", 0.0),
+                "official_holding_count": len(
+                    bitcoin_data.get("holding_statements_xbrl", [])
+                ),
+                "ai_holding_count": sum(
+                    len(r.get("statements", []))
+                    for r in bitcoin_data.get("holding_statements_gen_ai", [])
+                ),
+                "treasury_update_count": sum(
+                    len(r.get("statements", []))
+                    for r in bitcoin_data.get("treasury_updates_gen_ai", [])
+                ),
+            },
+            holdings=sorted(
+                holdings,
+                key=lambda x: x.date_of_disclosure if x.date_of_disclosure else "",
+                reverse=True,
+            ),
+            treasury_updates=sorted(
+                treasury_updates, key=lambda x: x.date if x.date else "", reverse=True
+            ),
+            filing_count=filing_count,
+        )
